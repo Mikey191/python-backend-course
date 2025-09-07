@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Пользователи</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        padding: 20px;
+        background: #f0f0f0;
+      }
+      h1 {
+        color: #333;
+      }
+      .user {
+        background: #fff;
+        padding: 10px 15px;
+        margin-bottom: 10px;
+        border-radius: 5px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      }
+      .email {
+        color: #555;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Список пользователей</h1>
+    <div id="users-container"></div>
+
+    <script>
+      // Загружаем JSON-файл
+      fetch("users.json")
+        .then((response) => response.json())
+        .then((data) => {
+          const container = document.getElementById("users-container");
+          console.log(data)
+          data.forEach((user) => {
+            const userDiv = document.createElement("div");
+            userDiv.className = "user";
+            userDiv.innerHTML = `<strong>${user.name}</strong><div class="email">${user.email}</div>`;
+            container.appendChild(userDiv);
+          });
+        })
+        .catch((error) => {
+          console.error("Ошибка загрузки JSON:", error);
+        });
+    </script>
+  </body>
+</html>
