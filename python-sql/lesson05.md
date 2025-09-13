@@ -559,8 +559,6 @@ def hot_products(db: Database, threshold: float = 4.5):
     return db.exec_read(sql, (threshold,))
 ```
 
-> Подсказка: сюда же можно добавить алиасы (`AS alias_name`) или объединение полей, если хочешь расширить практику.
-
 ---
 
 ### Шаг 6. `main.py`: меню, маппинг, заполнение данными
