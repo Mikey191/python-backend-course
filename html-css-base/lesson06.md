@@ -1010,17 +1010,6 @@ ul.features li:nth-child(even) {
 }
 ```
 
-Или в таблице:
-
-```css
-tbody tr:nth-child(even) {
-  background: #f9f9f9;
-}
-tbody tr:hover {
-  background: #f1f1f1;
-} /* подсветка строки */
-```
-
 ### `:not()` как удобный инструмент
 
 Вместо `li:last-child::after { display:none }` лучше сразу писать:
