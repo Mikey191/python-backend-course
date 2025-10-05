@@ -463,57 +463,74 @@ CREATE TABLE records (
 
 ## 1НФ (первая нормальная форма) — атомарность значений
 
-**Правило 1НФ:** все значения в колонках — атомарны (не списки/массивы), таблица имеет четкую структуру строк и столбцов.
+**Правило 1НФ:** все значения в колонках — атомарны (не списки/массивы), таблица имеет четкую структуру строк и столбцов. Т.е. **в каждой ячейке только одно значение, нет повторяющихся групп или списков**.
 
 **Частые нарушения 1НФ:** в одной колонке хранится «список предметов через запятую» или «массив телефонов». Такое нужно разобрать — сохранить каждое значение в отдельной строке.
 
-В нашем примере `records` уже в общем виде в 1НФ (каждое поле — атомарное). Но если бы была колонка `subjects` со значением `'Математика, Физика'`, нужно было бы вынести в отдельные строки/таблицы.
+### **Неправильный пример (НЕ 1НФ):**
+
+| id  | student_name | student_email | subject_title      | teacher_name    | teacher_email               | semester | grade | created_at |
+| --- | ------------ | ------------- | ------------------ | --------------- | --------------------------- | -------- | ----- | ---------- |
+| 1   | Иван Иванов  | ivan@mail.ru  | Математика, Физика | Петров, Сидоров | petrov@mail.ru, sid@mail.ru | 2024-1   | 5, 4  | 2024-06-01 |
+
+> _Здесь в некоторых ячейках сразу несколько значений (через запятую)._
+
+### **Правильный пример (1НФ):**
+
+| id  | student_name | student_email | subject_title | teacher_name | teacher_email  | semester | grade | created_at |
+| --- | ------------ | ------------- | ------------- | ------------ | -------------- | -------- | ----- | ---------- |
+| 1   | Иван Иванов  | ivan@mail.ru  | Математика    | Петров       | petrov@mail.ru | 2024-1   | 5     | 2024-06-01 |
+| 2   | Иван Иванов  | ivan@mail.ru  | Физика        | Сидоров      | sid@mail.ru    | 2024-1   | 4     | 2024-06-01 |
+
+> _Теперь в каждой ячейке только одно значение._
 
 ---
 
 ## 2НФ (вторая нормальная форма) — убрать частичные зависимости
 
-**Правило 2НФ:** таблица должна быть в 1НФ и **все неключевые атрибуты должны полностью зависеть от всего первичного ключа**, а не от его части. Смысл: убрать частичные зависимости, которые возможны, если PK составной.
+**Правило 2НФ:** **таблица должна быть в 1НФ** и **все неключевые атрибуты должны полностью зависеть от всего составного первичного ключа**, а не от его части. Смысл: убрать частичные зависимости, которые возможны, если PK составной.
 
 В нашем первоначальном `records` PK был `id` (суррогатный), поэтому формально 2НФ не нарушается из-за частичных зависимостей, но логически мы видим, что `student_*` и `teacher_*` не зависят от оценки: они зависят только от студента/преподавателя. Поэтому естественный шаг — выделить студентов, предметы и преподавателей в отдельные таблицы.
 
-**Нормализация в 2 шага (выделяем сущности):**
+### **Неправильный пример (НЕ 2НФ):**
 
-1. Создаём таблицы `students`, `teachers`, `subjects`, `grades` (где `grades` хранит только связь и оценку).
+| student_name | student_email | subject_title | teacher_name | teacher_email  | semester | grade | created_at |
+| ------------ | ------------- | ------------- | ------------ | -------------- | -------- | ----- | ---------- |
+| Иван Иванов  | ivan@mail.ru  | Математика    | Петров       | petrov@mail.ru | 2024-1   | 5     | 2024-06-01 |
+| Иван Иванов  | ivan@mail.ru  | Физика        | Сидоров      | sid@mail.ru    | 2024-1   | 4     | 2024-06-01 |
 
-**DDL после разделения:**
+> _Здесь email студента зависит только от имени студента, а не от всей строки (например, предмета). Аналогично с учителем._
 
-```sql
-CREATE TABLE students (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL,
-  email TEXT UNIQUE
-);
+### **Правильные таблицы (2НФ):**
 
-CREATE TABLE teachers (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL,
-  email TEXT UNIQUE
-);
+#### **Таблица студентов:**
 
-CREATE TABLE subjects (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  title TEXT NOT NULL,
-  teacher_id INTEGER,
-  FOREIGN KEY (teacher_id) REFERENCES teachers(id)
-);
+| student_id | student_name | student_email |
+| ---------- | ------------ | ------------- |
+| 1          | Иван Иванов  | ivan@mail.ru  |
 
-CREATE TABLE grades (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  student_id INTEGER NOT NULL,
-  subject_id INTEGER NOT NULL,
-  semester TEXT,
-  grade INTEGER,
-  created_at TEXT,
-  FOREIGN KEY (student_id) REFERENCES students(id),
-  FOREIGN KEY (subject_id) REFERENCES subjects(id)
-);
-```
+#### **Таблица учителей:**
+
+| teacher_id | teacher_name | teacher_email  |
+| ---------- | ------------ | -------------- |
+| 1          | Петров       | petrov@mail.ru |
+| 2          | Сидоров      | sid@mail.ru    |
+
+#### **Таблица предметов:**
+
+| subject_id | subject_title |
+| ---------- | ------------- |
+| 1          | Математика    |
+| 2          | Физика        |
+
+#### **Таблица оценок (журнал):**
+
+| record_id | student_id | subject_id | teacher_id | semester | grade | created_at |
+| --------- | ---------- | ---------- | ---------- | -------- | ----- | ---------- |
+| 1         | 1          | 1          | 1          | 2024-1   | 5     | 2024-06-01 |
+| 2         | 1          | 2          | 2          | 2024-1   | 4     | 2024-06-01 |
+
+> _Теперь email студента и учителя хранятся только в своих таблицах, а не дублируются._
 
 **Что поменялось (логика):**
 
@@ -528,70 +545,45 @@ CREATE TABLE grades (
 
 ## 3НФ (третья нормальная форма) — убрать транзитивные зависимости
 
-**Правило 3НФ:** таблица в 2НФ и **никакой неключевой атрибут не должен зависеть транзитивно от ключа** (т.е. не должно быть A → B → C, где C зависит от B, а B — от ключа).
+**Правило 3НФ:** **таблица в 2НФ** и **никакой неключевой атрибут не должен зависеть транзитивно от ключа** (не должно быть A → B → C, где C зависит от B, а B — от ключа). Т.е. **нет неключевых столбцов, зависящих друг от друга**.
 
-Применение в нашем примере: убедиться, что в таблице `grades` нет полей, которые зависят не от `student_id, subject_id` напрямую, а от связанных сущностей. Например, если в `grades` оставили `teacher_email`, то это транзитивная зависимость (`grade` → `subject_id` → `teacher_id` → `teacher_email`) — это нарушение 3НФ. Поэтому такие поля были вынесены в `teachers`.
+### **Неправильный пример (НЕ 3НФ):**
 
-**Итог:** структура из предыдущего шага удовлетворяет 3НФ, потому что:
+| student_id | student_name | student_email | student_group | group_curator |
+| ---------- | ------------ | ------------- | ------------- | ------------- |
+| 1          | Иван Иванов  | ivan@mail.ru  | Группа 101    | Смирнов       |
 
-- `grades` содержит только поля, непосредственно связанные со связью студент-предмет (оценка, семестр).
-- сведения о преподавателях и студентах вынесены в отдельные таблицы.
+> _Здесь curator зависит от группы, а не от студента напрямую._
 
----
+### **Правильные таблицы (3НФ):**
 
-## Пример переноса конкретных строк: «до» → «после»
+#### **Таблица студентов:**
 
-**До (records):**
+| student_id | student_name | student_email | group_id |
+| ---------- | ------------ | ------------- | -------- |
+| 1          | Иван Иванов  | ivan@mail.ru  | 1        |
 
-| id  | student_name | student_email                         | subject_title | teacher_name | grade |
-| --- | ------------ | ------------------------------------- | ------------- | ------------ | ----- |
-| 1   | Иван Иванов  | [ivan@mail.com](mailto:ivan@mail.com) | Математика    | Петров       | 5     |
-| 2   | Иван Иванов  | [ivan@mail.com](mailto:ivan@mail.com) | Физика        | Сидоров      | 4     |
-| 3   | Ольга        | [olga@mail.com](mailto:olga@mail.com) | Математика    | Петров       | 5     |
+#### **Таблица групп:**
 
-**После нормализации:**
+| group_id | group_name | group_curator |
+| -------- | ---------- | ------------- |
+| 1        | Группа 101 | Смирнов       |
 
-`students`:
-
-| id  | name        | email                                 |
-| --- | ----------- | ------------------------------------- |
-| 1   | Иван Иванов | [ivan@mail.com](mailto:ivan@mail.com) |
-| 2   | Ольга       | [olga@mail.com](mailto:olga@mail.com) |
-
-`teachers`:
-
-| id  | name    | email        |
-| --- | ------- | ------------ |
-| 1   | Петров  | petrov\@mail |
-| 2   | Сидоров | sidor\@mail  |
-
-`subjects`:
-
-| id  | title      | teacher_id |
-| --- | ---------- | ---------- |
-| 1   | Математика | 1          |
-| 2   | Физика     | 2          |
-
-`grades`:
-
-| id  | student_id | subject_id | grade |
-| --- | ---------- | ---------- | ----- |
-| 1   | 1          | 1          | 5     |
-| 2   | 1          | 2          | 4     |
-| 3   | 2          | 1          | 5     |
-
-Теперь:
-
-- чтобы получить те же отчёты, мы делаем `JOIN` между `grades`, `students`, `subjects`, `teachers`.
-- при изменении email преподавателя — меняем одну строку в `teachers`, не ходим по множеству записей.
+> _Теперь curator хранится только в таблице групп, а не у каждого студента._
 
 ---
 
-## Немного про 3НФ — что такое «транзитивная зависимость» простыми словами
+## **Результат нормализации**
 
-Если в таблице А есть столбец B, и столбец B определяет столбец C (т.е. B → C), то C транзитивно зависит от первичного ключа (PK → B → C). В 3НФ такого быть не должно — C нужно вынести в отдельную таблицу, где она принадлежит B.
+В результате нормализации ваша база будет состоять из связанных таблиц:
 
-Пример: в таблице `products` есть `category_id` и `category_name`. Здесь `category_name` транзитивно зависит от `category_id` — правильнее создать таблицу `categories(id, name)`.
+- **students** (студенты)
+- **teachers** (преподаватели)
+- **subjects** (предметы)
+- **groups** (группы, если нужно)
+- **grades/records** (журнал оценок)
+
+Это уменьшает избыточность, повышает целостность данных и облегчает сопровождение базы данных.
 
 ---
 
@@ -605,304 +597,7 @@ CREATE TABLE grades (
 
 ---
 
-# 5. Практика. Шаги по созданию и отработке связей.
-
-## Шаг 1. Проект связных таблиц:
-
-1. **students**
-
-   - Поля:
-
-     - `id` — уникальный идентификатор студента (рекомендуется integer, PRIMARY KEY, автогенерация).
-     - `name` — текстовое имя студента (NOT NULL).
-
-2. **subjects**
-
-   - Поля:
-
-     - `id` — PK для предмета.
-     - `title` — название предмета (NOT NULL).
-
-3. **grades**
-
-   - Поля:
-
-     - `id` — PK записи (или можно использовать составной ключ (student_id, subject_id) — на ваше усмотрение).
-     - `student_id` — ссылка на `students.id` (FOREIGN KEY).
-     - `subject_id` — ссылка на `subjects.id` (FOREIGN KEY).
-     - `grade` — числовая оценка (например INTEGER).
-
-   - Связи:
-
-     - `student_id` REFERENCES `students(id)`
-     - `subject_id` REFERENCES `subjects(id)`
-
-   - Дополнительно: решите стратегию удаления/обновления — `ON DELETE RESTRICT` или `ON DELETE CASCADE` (смотрите подсказки ниже).
-
-4. **teachers**
-
-   - Поля:
-
-     - `id` — PK преподавателя.
-     - `name` — имя (NOT NULL).
-     - `subject_id` — ссылка на `subjects.id` (FOREIGN KEY) — означает, что преподаватель ведёт конкретный предмет (в этом простом варианте один преподаватель привязан к одному предмету).
-
----
-
-## Шаг 2. Заполнить таблицы данными:
-
-**students** (пример 6 студентов)
-
-```
-1, "Иван Иванов"
-2, "Мария Петрова"
-3, "Алексей Смирнов"
-4, "Ольга Кузнецова"
-5, "Дмитрий Орлов"
-6, "Светлана Никифорова"
-```
-
-**subjects** (пример 4 предмета)
-
-```
-1, "Математика"
-2, "Физика"
-3, "История"
-4, "Информатика"
-```
-
-**teachers** (пример; связываем с subject_id)
-
-```
-1, "Петров", 1      -- преподаватель Петров ведёт Математику (subject_id = 1)
-2, "Сидоров", 2     -- Сидоров — Физика
-3, "Иванова", 4     -- Иванова — Информатика
-```
-
-(оставьте поле subject_id NULL для преподавателя, если хотите показать «не назначен»)
-
-**grades** (пример оценок)
-
-```
-1, 1, 1, 5   -- id, student_id(1=Иван), subject_id(1=Математика), grade=5
-2, 1, 4, 4   -- Иван по Информатике — 4
-3, 2, 1, 3   -- Мария по Математике — 3
-4, 3, 2, 4   -- Алексей по Физике — 4
-5, 4, 3, 5   -- Ольга по Истории —5
-6, 5, 1, 4   -- Дмитрий по Математике —4
-7, 6, 4, 5   -- Светлана по Информатике —5
-```
-
-## Шаг 3. Составить сырые запросы согласно заданиям
-
-### Задание 1 — Базовый SELECT + ORDER BY + LIMIT
-
-**Задача.** Вывести список студентов (id, name), отсортированный по имени в алфавитном порядке, первые 20 записей.
-
-### Задание 2 — DISTINCT
-
-**Задача.** Вывести уникальные названия предметов (без дублирующихся `title`).
-
-### Задание 3 — LENGTH и сортировка по длине
-
-**Задача.** Показать предметы с длиной их названия (title) и отсортировать по длине названия по убыванию.
-
-### Задание 4 — WHERE + BETWEEN
-
-**Задача.** Вывести все записи из `grades`, где оценка (grade) между 4 и 5 включительно, отсортированные по убыванию оценки.
-
-### Задание 5 — LIKE (поиск по шаблону)
-
-**Задача.** Найти всех студентов, у которых в имени встречается фрагмент `Иван` (например «Иван», «Иванов», «Иванова»).
-
-### Задание 6 — IS NULL / IS NOT NULL
-
-**Задача A.** Показать всех преподавателей, у которых **нет** назначенного предмета (`subject_id IS NULL`).
-**Задача B.** Показать всех преподавателей, у которых есть назначенный предмет (`subject_id IS NOT NULL`).
-
-### Задание 7 — ORDER BY + LIMIT + OFFSET (пагинация)
-
-**Задача.** Реализовать «вторую страницу» списка студентов: вывести 10 студентов, отсортированных по имени, начиная с 11-й записи (т.е. OFFSET 10).
-
-### Задание 8 — GROUP BY + COUNT (с DISTINCT)
-
-**Задача.** Для каждого студента посчитать, по скольким **разным предметам** у него есть оценки (т.е. кол-во уникальных `subject_id`). Отсортировать по убыванию этого числа.
-
-### Задание 9 — GROUP BY + AVG + HAVING
-
-**Задача.** Найти предметы (`subject_id`), где средний балл (по всем записям в `grades`) **не ниже 4.5**.
-
-## Шаг 4. Проверка практических заданий
-
-## Задание 1 — Базовый SELECT + ORDER BY + LIMIT
-
-**Задача.** Вывести список студентов (id, name), отсортированный по имени в алфавитном порядке, первые 20 записей.
-
-**SQL**
-
-```sql
-SELECT id, name
-FROM students
-ORDER BY name ASC
-LIMIT 20;
-```
-
-**Пояснение.**
-`SELECT` выбирает нужные колонки. `ORDER BY name ASC` сортирует по имени по возрастанию (A→Z). `LIMIT 20` ограничивает объём вывода — удобно для больших таблиц и первой страницы отображения. Такой запрос — базовый шаблон для отображения списка с пагинацией (добавив OFFSET — получим следующую страницу).
-
----
-
-## Задание 2 — DISTINCT
-
-**Задача.** Вывести уникальные названия предметов (без дублирующихся `title`).
-
-**SQL**
-
-```sql
-SELECT DISTINCT title
-FROM subjects
-ORDER BY title;
-```
-
-**Пояснение.**
-`DISTINCT` убирает дублирующиеся строки по колонке `title`. Полезно, если в таблице `subjects` по ошибке есть одинаковые названия или если вы хотите получить справочник уникальных наименований. `ORDER BY` делает вывод упорядоченным для удобочитаемости.
-
----
-
-## Задание 3 — LENGTH и сортировка по длине
-
-**Задача.** Показать предметы с длиной их названия (title) и отсортировать по длине названия по убыванию.
-
-**SQL**
-
-```sql
-SELECT title, LENGTH(title) AS len
-FROM subjects
-ORDER BY len DESC, title;
-```
-
-**Пояснение.**
-`LENGTH(title)` возвращает число символов в названии (в SQLite — длину строки в байтах/символах; для простых латиницы/кириллицы этого достаточно). Алиас `AS len` упрощает сортировку и вывод. Сортируем сначала по `len DESC` (самые длинные — вверху), затем по `title` для детерминированности среди одинаковой длины.
-
----
-
-## Задание 4 — WHERE + BETWEEN
-
-**Задача.** Вывести все записи из `grades`, где оценка (grade) между 4 и 5 включительно, отсортированные по убыванию оценки.
-
-**SQL**
-
-```sql
-SELECT id, student_id, subject_id, grade
-FROM grades
-WHERE grade BETWEEN 4 AND 5
-ORDER BY grade DESC;
-```
-
-**Пояснение.**
-`WHERE grade BETWEEN 4 AND 5` — краткая запись для `grade >= 4 AND grade <= 5`. `BETWEEN` делает условие читабельным для диапазонов. `ORDER BY grade DESC` показывает сначала лучшие оценки. Если в таблице есть NULL в `grade`, они не попадут (BETWEEN не выбирает NULL).
-
----
-
-## Задание 5 — LIKE (поиск по шаблону)
-
-**Задача.** Найти всех студентов, у которых в имени встречается фрагмент `Иван` (например «Иван», «Иванов», «Иванова»).
-
-**SQL**
-
-```sql
-SELECT id, name
-FROM students
-WHERE name LIKE '%Иван%';
-```
-
-**Пояснение.**
-`LIKE '%Иван%'` ищет `Иван` в любом месте строки (перед и/или после могут быть другие символы). В SQLite поиск по `LIKE` по умолчанию чувствителен к регистру — если нужен нечувствительный — можно использовать `LOWER(name) LIKE LOWER('%ivan%')` (или колlation). Обратите внимание на производительность: на больших таблицах `LIKE '%...%'` не использует индекс.
-
----
-
-## Задание 6 — IS NULL / IS NOT NULL
-
-**Задача A.** Показать всех преподавателей, у которых **нет** назначенного предмета (`subject_id IS NULL`).
-**Задача B.** Показать всех преподавателей, у которых есть назначенный предмет (`subject_id IS NOT NULL`).
-
-**SQL A**
-
-```sql
-SELECT id, name
-FROM teachers
-WHERE subject_id IS NULL;
-```
-
-**SQL B**
-
-```sql
-SELECT id, name, subject_id
-FROM teachers
-WHERE subject_id IS NOT NULL;
-```
-
-**Пояснение.**
-`IS NULL` и `IS NOT NULL` — специальные операторы для проверки отсутствия значения. Нельзя писать `= NULL`. Используется, чтобы найти «осиротевшие» записи или, наоборот, заполненные. Часто применяется при валидации данных и подготовке исправлений.
-
----
-
-## Задание 7 — ORDER BY + LIMIT + OFFSET (пагинация)
-
-**Задача.** Реализовать «вторую страницу» списка студентов: вывести 10 студентов, отсортированных по имени, начиная с 11-й записи (т.е. OFFSET 10).
-
-**SQL**
-
-```sql
-SELECT id, name
-FROM students
-ORDER BY name
-LIMIT 10 OFFSET 10;
-```
-
-**Пояснение.**
-`LIMIT 10 OFFSET 10` вернёт записи 11–20 (поскольку OFFSET пропускает первые 10). Такой паттерн часто применяется в UI для постраничной навигации. Для больших таблиц подумать о `ORDER BY` по индексированному полю (обычно по `id` или `name` с индексом).
-
----
-
-## Задание 8 — GROUP BY + COUNT (с DISTINCT)
-
-**Задача.** Для каждого студента посчитать, по скольким **разным предметам** у него есть оценки (т.е. кол-во уникальных `subject_id`). Отсортировать по убыванию этого числа.
-
-**SQL**
-
-```sql
-SELECT student_id, COUNT(DISTINCT subject_id) AS subjects_count
-FROM grades
-GROUP BY student_id
-ORDER BY subjects_count DESC;
-```
-
-**Пояснение.**
-`GROUP BY student_id` агрегирует строки по студенту. `COUNT(DISTINCT subject_id)` считает число уникальных предметов, по которым студент имел оценки — удобный приём, чтобы убрать повторные попытки по одному предмету. `ORDER BY ... DESC` выводит наиболее «разнообразных» студентов в начале.
-
----
-
-## Задание 9 — GROUP BY + AVG + HAVING
-
-**Задача.** Найти предметы (`subject_id`), где средний балл (по всем записям в `grades`) **не ниже 4.5**.
-
-**SQL**
-
-```sql
-SELECT subject_id, AVG(grade) AS avg_grade
-FROM grades
-GROUP BY subject_id
-HAVING AVG(grade) >= 4.5
-ORDER BY avg_grade DESC;
-```
-
-**Пояснение.**
-`AVG(grade)` вычисляет среднее по группе. `HAVING` фильтрует уже сгруппированные данные — именно для агрегатов (нельзя использовать `AVG` в `WHERE`). `ORDER BY avg_grade DESC` выводит лучшие предметы первыми. Учтите: если у предмета нет записей (нет оценок), он не появится в результате — либо используйте LEFT JOIN с subjects (запрещено пока), либо заранее вставляйте нулевые/плейсхолдерные значения.
-
----
-
-# 6. JOIN — основы
+# 5. JOIN — основы
 
 Когда мы разобрались с тем, как создавать таблицы и связывать их через **первичные** и **внешние ключи**, настал момент научиться работать с данными сразу из нескольких таблиц. На практике почти никогда не бывает так, что нужная информация лежит в одной таблице.
 
@@ -1067,465 +762,1171 @@ CROSS JOIN subjects subj;
 
 ---
 
-# 7. Практика (Приложение)
+# 6. Логический порядок выполнения запросов.
 
-### Шаг 1 — Создаём core.py (класс для работы с БД и схема)
+## Обновлённый логический порядок выполнения SQL-запроса, учитывающий оператор JOIN:
 
-Файл `core.py` — централизует подключение, включает проверку внешних ключей, создаёт таблицы и наполняет их тестовыми данными (`seed`).
+- `FROM` — выбор основной таблицы.
+- `JOIN` — присоединение других таблиц к основной (по условиям соединения).
+- `WHERE` — фильтрация строк (до группировки).
+- `GROUP BY` — объединение строк в группы.
+- `HAVING` — фильтрация групп (по агрегатам или выражениям над группой).
+- `SELECT` — вычисление итоговых выражений, агрегатов, алиасов.
+- `ORDER BY` — сортировка результирующих строк.
+- `LIMIT` — ограничение числа возвращаемых строк.
+
+**Важно:**
+
+**JOIN** — это часть этапа **FROM**, но логически сначала выбирается основная таблица, затем к ней присоединяются остальные через JOIN по заданным условиям.
+
+---
+
+## **Структура таблиц и их связи дле демонстрации запросов**
+
+### **1. students** — студенты
+
+| id  | name           | email          | "group" |
+| --- | -------------- | -------------- | ------- |
+| 1   | Иван Иванов    | ivan@mail.ru   | 101     |
+| 2   | Ольга Петрова  | olga@mail.ru   | 102     |
+| 3   | Сергей Смирнов | sergey@mail.ru | 101     |
+
+### **2. teachers** — преподаватели
+
+| id  | name         | email          |
+| --- | ------------ | -------------- |
+| 1   | Петров П.П.  | petrov@mail.ru |
+| 2   | Сидоров С.С. | sid@mail.ru    |
+
+### **3. subjects** — предметы
+
+| id  | title      |
+| --- | ---------- |
+| 1   | Математика |
+| 2   | Физика     |
+| 3   | Химия      |
+
+### **4. records** — журнал оценок (связующая таблица)
+
+| id  | student_id | subject_id | teacher_id | semester | grade | created_at |
+| --- | ---------- | ---------- | ---------- | -------- | ----- | ---------- |
+| 1   | 1          | 1          | 1          | 2024-1   | 5     | 2024-06-01 |
+| 2   | 1          | 2          | 2          | 2024-1   | 4     | 2024-06-01 |
+| 3   | 2          | 1          | 1          | 2024-1   | 3     | 2024-06-01 |
+| 4   | 3          | 1          | 1          | 2024-1   | 2     | 2024-06-01 |
+| 5   | 3          | 3          | 2          | 2024-1   | 5     | 2024-06-01 |
+| 6   | 2          | 2          | 2          | 2024-1   | 5     | 2024-06-01 |
+
+---
+
+### **Связи между таблицами**
+
+- `records.student_id` → `students.id`
+- `records.subject_id` → `subjects.id`
+- `records.teacher_id` → `teachers.id`
+
+---
+
+### Создание таблиц
+
+```sql
+CREATE TABLE students (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  "group" TEXT NOT NULL
+);
+
+CREATE TABLE teachers (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL,
+  email TEXT NOT NULL
+);
+
+CREATE TABLE subjects (
+  id INTEGER PRIMARY KEY,
+  title TEXT NOT NULL
+);
+
+CREATE TABLE records (
+  id INTEGER PRIMARY KEY,
+  student_id INTEGER NOT NULL,
+  subject_id INTEGER NOT NULL,
+  teacher_id INTEGER NOT NULL,
+  semester TEXT NOT NULL,
+  grade INTEGER,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (student_id) REFERENCES students(id),
+  FOREIGN KEY (subject_id) REFERENCES subjects(id),
+  FOREIGN KEY (teacher_id) REFERENCES teachers(id)
+);
+```
+
+### Заполнение данными
+
+```sql
+-- Заполнение таблицы студентов
+INSERT INTO students (id, name, email, "group") VALUES
+(1, 'Иван Иванов', 'ivan@mail.ru', '101'),
+(2, 'Ольга Петрова', 'olga@mail.ru', '102'),
+(3, 'Сергей Смирнов', 'sergey@mail.ru', '101');
+
+-- Заполнение таблицы преподавателей
+INSERT INTO teachers (id, name, email) VALUES
+(1, 'Петров П.П.', 'petrov@mail.ru'),
+(2, 'Сидоров С.С.', 'sid@mail.ru');
+
+-- Заполнение таблицы предметов
+INSERT INTO subjects (id, title) VALUES
+(1, 'Математика'),
+(2, 'Физика'),
+(3, 'Химия');
+
+-- Заполнение таблицы оценок (журнал)
+INSERT INTO records (id, student_id, subject_id, teacher_id, semester, grade, created_at) VALUES
+(1, 1, 1, 1, '2024-1', 5, '2024-06-01'),
+(2, 1, 2, 2, '2024-1', 4, '2024-06-01'),
+(3, 2, 1, 1, '2024-1', 3, '2024-06-01'),
+(4, 3, 1, 1, '2024-1', 2, '2024-06-01'),
+(5, 3, 3, 2, '2024-1', 5, '2024-06-01'),
+(6, 2, 2, 2, '2024-1', 5, '2024-06-01');
+```
+
+### Примеры запросов
+
+#### **Пример 1: JOIN + WHERE**
+
+```sql
+SELECT students.name, subjects.title
+FROM students
+JOIN records ON students.id = records.student_id
+JOIN subjects ON records.subject_id = subjects.id
+WHERE students."group" = '101';
+```
+
+**Результат:**  
+Покажет имена студентов из группы 101 и названия предметов, которые они изучают.
+
+---
+
+#### **Пример 2: JOIN + GROUP BY + HAVING**
+
+```sql
+SELECT subjects.title, COUNT(records.student_id) AS student_count
+FROM subjects
+JOIN records ON subjects.id = records.subject_id
+WHERE records.grade >= 3
+GROUP BY subjects.title
+HAVING COUNT(records.student_id) > 1;
+```
+
+**Результат:**  
+Покажет предметы, по которым сдали экзамен (оценка ≥ 3) больше одного студента.
+
+---
+
+#### **Пример 3: JOIN + WHERE + GROUP BY + HAVING + ORDER BY**
+
+```sql
+SELECT teachers.name, AVG(records.grade) AS avg_grade
+FROM teachers
+JOIN records ON teachers.id = records.teacher_id
+WHERE records.grade IS NOT NULL
+GROUP BY teachers.name
+HAVING AVG(records.grade) > 4
+ORDER BY avg_grade DESC;
+```
+
+**Результат:**  
+Покажет преподавателей, у которых средний балл студентов выше 4, отсортированных по убыванию среднего балла.
+
+---
+
+# 7. Практика **«Учебный центр» — Students / Subjects / Teachers → Groups (M:M) → Gradebook (Journal of grades)**
+
+## Основные сущности, связи и архитектура приложения
+
+### Практика 1 — **Students / Subjects / Teachers**
+
+- **teachers**
+
+  - `id`, `name`, `email`
+
+- **subjects**
+
+  - `id`, `name`, `teacher_id`
+  - связь: **subject → teacher** — многие предметы у одного преподавателя (1 : M)
+  - поведение FK: `ON DELETE SET NULL` (при удалении преподавателя поле `teacher_id` обнуляется)
+
+- **students**
+
+  - `id`, `first_name`, `last_name`, `email`, `subject_id`
+  - связь: **student → subject** — у студента «основной» предмет (1 student → 1 subject; subject → many students) (1 : M)
+  - поведение FK: `ON DELETE CASCADE` (при удалении предмета соответствующие студенты удаляются — для демонстрации CASCADE)
+
+- Примечание: в данных может быть `NULL` (студент без subject, subject без teacher).
+
+---
+
+### Практика 2 — добавляем **Groups (M:M)**
+
+- **groups**
+
+  - `id`, `name`
+
+- **group_members**
+
+  - `group_id`, `student_id`, `role`
+  - связь: **groups ↔ students** через `group_members` — M : M
+  - PK: `(group_id, student_id)`
+  - FK-ограничения: оба FK с `ON DELETE CASCADE` (удаление группы или студента удаляет записи в `group_members`)
+
+---
+
+### Практика 3 — добавляем **grades (журнал оценок)**
+
+- **grades**
+
+  - `id`, `student_id`, `subject_id`, `teacher_id`, `grade`, `exam_date`
+  - связи:
+
+    - `grades.student_id` → `students.id` (FK, `ON DELETE CASCADE`)
+    - `grades.subject_id` → `subjects.id` (FK, `ON DELETE CASCADE`)
+    - `grades.teacher_id` → `teachers.id` (FK, `ON DELETE SET NULL`)
+
+- Используется для запросов с JOIN + `WHERE`, `GROUP BY`, `HAVING`, `ORDER BY`, оконных функций и т.д.
+
+---
+
+### Архитектура Python-приложения
+
+#### **core.py** — класс/функции для работы с БД (подключение, `PRAGMA foreign_keys = ON`, `create_tables()`, `seed_data()`, `execute()`/`fetchall()` и т.п.).
 
 ```python
-# core.py
 import sqlite3
-from pathlib import Path
-
-DB_PATH = Path("school.db")
 
 class Database:
-    def __init__(self, db_path: Path = DB_PATH):
-        self.db_path = Path(db_path)
-        self.conn = sqlite3.connect(str(self.db_path))
-        # Чтобы получать удобные объекты строк по имени колонки:
-        self.conn.row_factory = sqlite3.Row
-        # Включаем проверку внешних ключей (важно в SQLite)
-        self.conn.execute("PRAGMA foreign_keys = ON;")
+    def __init__(self, db_name="school.db"):
+        self.conn = sqlite3.connect(db_name)
+        self.conn.execute("PRAGMA foreign_keys = ON;")  # включаем поддержку FK
+        self.cur = self.conn.cursor()
+
+    def executescript(self, script: str):
+        """Выполнить SQL-скрипт (несколько команд)."""
+        self.conn.executescript(script)
         self.conn.commit()
 
-    def exec_write(self, sql: str, params=None):
-        cur = self.conn.cursor()
-        if params is None:
-            cur.execute(sql)
-        elif isinstance(params, list):
-            cur.executemany(sql, params)
-        else:
-            cur.execute(sql, params)
+    def execute(self, query: str, params: tuple = ()):
+        """Выполнить одиночный запрос (без fetch)."""
+        self.cur.execute(query, params)
         self.conn.commit()
-        return cur
 
-    def exec_read(self, sql: str, params=()):
-        cur = self.conn.cursor()
-        cur.execute(sql, params)
-        return cur.fetchall()
-
-    def create_tables(self):
-        """Создаёт схему: students, subjects, teachers, grades."""
-        sqls = [
-            # students
-            """
-            CREATE TABLE IF NOT EXISTS students (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL
-            );
-            """,
-            # subjects
-            """
-            CREATE TABLE IF NOT EXISTS subjects (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                title TEXT NOT NULL
-            );
-            """,
-            # teachers (каждый teacher может быть связан с subject через subject_id)
-            """
-            CREATE TABLE IF NOT EXISTS teachers (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                subject_id INTEGER,
-                FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE SET NULL
-            );
-            """,
-            # grades: оценки привязаны к студенту и предмету
-            """
-            CREATE TABLE IF NOT EXISTS grades (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                student_id INTEGER NOT NULL,
-                subject_id INTEGER NOT NULL,
-                grade INTEGER,
-                created_at TEXT DEFAULT (date('now')),
-                FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
-                FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE
-            );
-            """
-        ]
-        for s in sqls:
-            self.exec_write(s)
-
-    def seed_data(self, force: bool = False):
-        """
-        Наполняет тестовыми данными, если таблицы пусты.
-        Если force=True — переписывает (удаляет старые данные и вставляет заново).
-        """
-        if force:
-            # осторожно — удаляем содержимое
-            for t in ("grades", "teachers", "students", "subjects"):
-                self.exec_write(f"DELETE FROM {t};")
-                self.exec_write(f"DELETE FROM sqlite_sequence WHERE name='{t}';")  # сброс AUTOINC (SQLite)
-        # проверяем есть ли данные
-        cnt = self.exec_read("SELECT COUNT(*) as c FROM students;")[0]["c"]
-        if cnt > 0 and not force:
-            print("Seed: данные уже есть — пропускаю (use force=True to reset).")
-            return
-
-        # вставляем справочники: students, subjects, teachers
-        students = [
-            ("Иван Иванов",),
-            ("Мария Петрова",),
-            ("Алексей Смирнов",),
-            ("Ольга Кузнецова",),
-            ("Дмитрий Орлов",),
-            ("Светлана Никифорова",)
-        ]
-        subjects = [
-            ("Математика",),
-            ("Физика",),
-            ("История",),
-            ("Информатика",)
-        ]
-        # teachers: (name, subject_id) — привязка преподавателя к предмету
-        # После вставки subjects мы узнаем их id, но используем фиксированные id,
-        # потому что мы только что создали subjects в этой же базе.
-        # Предполагаем, что subject ids будут 1..len(subjects)
-        teachers = [
-            ("Петров", 1),   # Математика
-            ("Сидоров", 2),  # Физика
-            ("Иванова", 4)   # Информатика
-        ]
-        grades = [
-            # (student_id, subject_id, grade)
-            (1, 1, 5),
-            (1, 4, 4),
-            (2, 1, 3),
-            (3, 2, 4),
-            (4, 3, 5),
-            (5, 1, 4),
-            (6, 4, 5)
-        ]
-
-        self.exec_write("INSERT INTO students (name) VALUES (?);", students)
-        self.exec_write("INSERT INTO subjects (title) VALUES (?);", subjects)
-        self.exec_write("INSERT INTO teachers (name, subject_id) VALUES (?, ?);", teachers)
-        self.exec_write("INSERT INTO grades (student_id, subject_id, grade) VALUES (?, ?, ?);", grades)
-        print("Seed: данные вставлены.")
+    def fetchall(self, query: str, params: tuple = ()):
+        """Выполнить запрос и вернуть все строки."""
+        self.cur.execute(query, params)
+        return self.cur.fetchall()
 
     def close(self):
         self.conn.close()
+
+def create_tables(db: Database):
+    """
+    Функция для создания таблиц. Может включать код для удаления таблиц для удобного перезапуска приложения (DROP TABLE IF EXISTS name_table;).
+    """
+
+def seed_data(db: Database):
+    """
+    Функция для заполнения таблиц данными.
+    """
 ```
 
-**Пояснения:**
-
-- `PRAGMA foreign_keys = ON;` — обязательно, без этого FK не проверяются в SQLite.
-- `ON DELETE CASCADE` на `grades` — обычно удобно: при удалении студента/предмета связанные оценки удаляются автоматически (демонстрация поведения).
-- `ON DELETE SET NULL` на `teachers.subject_id` — если предмет удалён, у преподавателя поле `subject_id` станет `NULL` (преподаватель «без предмета»).
-
-### Подробнее о `PRAGMA foreign_keys = ON;`
-
-`PRAGMA foreign_keys = ON;` включает _проверку ограничений внешних ключей_ (FOREIGN KEY) **для конкретного соединения** SQLite. Без этого включения SQLite **не будет** запрещать вставки/удаления/обновления, которые ломают ссылочную целостность, и `ON DELETE`/`ON UPDATE` не будут выполняться.
-
----
-
-### Почему это важно
-
-1. **По умолчанию в SQLite проверка FK отключена.**
-   Исторически поддержка FK в SQLite появилась, но по умолчанию она выключена — чтобы она работала, надо явно включить. (Практически во всех приложениях принято включать её вручную.)
-
-2. **Если FK не включены, данные могут стать неконсистентными.**
-   Пример: вы сможете вставить запись в `grades` со `student_id = 999`, хотя такого студента нет. Это создаёт «висящие» ссылки и ломает логику приложения.
-
-3. **Включение — на уровне соединения.**
-   Это не глобальная настройка базы на диск; она действует только для текущего `sqlite3.Connection`. Если вы откроете второе соединение к той же базе, вам нужно снова выполнить `PRAGMA foreign_keys = ON` в этом соединении.
-
-4. **Включение даёт вам реальное поведение FK-ограничений:**
-
-   - запрещает вставку дочерней строки без родителя (выдаст `sqlite3.IntegrityError`),
-   - запрещает удаление родителя при `RESTRICT`/`NO ACTION`,
-   - вызывает каскадный удаление `ON DELETE CASCADE`,
-   - позволяет `ON DELETE SET NULL`, и т.д.
-
----
-
-### Шаг 2 — Создаём `logic.py` (функции-решения 10 задач)
-
-Файл с функциями, которые выполняют SQL-запросы и возвращают результаты.
-
-#### Задание 1. Список студентов, предметов и их оценок (INNER JOIN)
-
-**Описание:**
-Выведите список студентов, предметов и полученных ими оценок. Если у студента нет оценки по предмету — он в выборку не попадёт.
-
-**Ожидаемый результат:**
-Таблица с колонками: `student_name`, `subject_title`, `grade`.
-
----
-
-#### Задание 2. Все студенты и их оценки (LEFT JOIN)
-
-**Описание:**
-Составьте список всех студентов и их оценок по предметам (если они есть). Если студент ещё не получил оценок, в поле `grade` должно стоять `NULL`.
-
-**Ожидаемый результат:**
-Таблица с колонками: `student_name`, `subject_title`, `grade`, где могут встречаться строки с пустыми оценками.
-
----
-
-#### Задание 3. Количество оценок по каждому предмету (COUNT)
-
-**Описание:**
-Посчитайте, сколько оценок выставлено по каждому предмету.
-
-**Ожидаемый результат:**
-Таблица с колонками: `subject_title`, `grades_count`.
-
----
-
-#### Задание 4. Средний балл по предметам (AVG)
-
-**Описание:**
-Для каждого предмета вычислите средний балл студентов.
-
-**Ожидаемый результат:**
-Таблица с колонками: `subject_title`, `avg_grade`.
-
----
-
-#### Задание 5. Топ-студенты (фильтрация по среднему баллу)
-
-**Описание:**
-Найдите студентов, чей средний балл по всем предметам выше заданного порога (`threshold`).
-Например, `threshold = 4.5`.
-
-**Ожидаемый результат:**
-Таблица с колонками: `student_name`, `avg_grade`.
-
----
-
-#### Задание 6. Предметы и средний балл у каждого преподавателя
-
-**Описание:**
-Выведите список преподавателей, предметов, которые они ведут, и средний балл студентов по этим предметам.
-
-**Ожидаемый результат:**
-Таблица с колонками: `teacher_name`, `subject_title`, `avg_grade`.
-
----
-
-#### Задание 7. Предметы без преподавателя
-
-**Описание:**
-Выведите список предметов, у которых ещё не назначен преподаватель (`teacher_id IS NULL`).
-
-**Ожидаемый результат:**
-Таблица с колонкой: `subject_title`.
-
----
-
-#### Задание 8. Сколько раз каждый студент сдавал каждый предмет
-
-**Описание:**
-Посчитайте, сколько раз каждый студент получал оценку по каждому предмету (например, пересдачи).
-
-**Ожидаемый результат:**
-Таблица с колонками: `student_name`, `subject_title`, `attempts_count`.
-
----
-
-#### Задание 9. Проверка каскадного удаления (ON DELETE CASCADE)
-
-**Описание:**
-Удалите одного студента из таблицы `students` и посмотрите, что произойдёт с его оценками в таблице `grades`.
-(Подсказка: при правильно настроенных связях его оценки должны удалиться автоматически).
-
-**Ожидаемый результат:**
-
-- В таблице `students` выбранный студент исчезает.
-- В таблице `grades` все записи, связанные с этим студентом, тоже исчезают.
-
----
-
-### Шаг 3 — Проверка решенных задач.
+#### **function(s).py** — набор функций, реализующих задачи/запросы для практик.
 
 ```python
-# logic.py
-from core import Database
-
-# 1) INNER JOIN: список (student, subject, grade)
-def list_student_subject_grades(db: Database):
-    sql = """
-    SELECT s.id AS student_id, s.name AS student_name,
-           sub.id AS subject_id, sub.title AS subject_title,
-           g.grade
-    FROM grades g
-    INNER JOIN students s ON s.id = g.student_id
-    INNER JOIN subjects sub ON sub.id = g.subject_id
-    ORDER BY s.id, sub.id;
-    """
-    return db.exec_read(sql)
-
-# 2) LEFT JOIN: все студенты и их оценки (если есть)
-def list_students_with_optional_grades(db: Database):
-    sql = """
-    SELECT s.id AS student_id, s.name AS student_name,
-           sub.title AS subject_title, g.grade
-    FROM students s
-    LEFT JOIN grades g ON g.student_id = s.id
-    LEFT JOIN subjects sub ON sub.id = g.subject_id
-    ORDER BY s.id;
-    """
-    return db.exec_read(sql)
-
-# 3) Количество студентов/оценок по предметам (COUNT)
-def subject_student_counts(db: Database):
-    sql = """
-    SELECT sub.id AS subject_id, sub.title AS subject_title,
-           COUNT(DISTINCT g.student_id) AS students_count,
-           COUNT(g.id) AS grades_count
-    FROM subjects sub
-    LEFT JOIN grades g ON g.subject_id = sub.id
-    GROUP BY sub.id, sub.title
-    ORDER BY students_count DESC;
-    """
-    return db.exec_read(sql)
-
-# 4) Средний балл по предметам (AVG)
-def avg_grade_per_subject(db: Database):
-    sql = """
-    SELECT sub.id AS subject_id, sub.title AS subject_title,
-           AVG(g.grade) AS avg_grade
-    FROM subjects sub
-    LEFT JOIN grades g ON g.subject_id = sub.id
-    GROUP BY sub.id, sub.title
-    ORDER BY avg_grade DESC;
-    """
-    return db.exec_read(sql)
-
-# 5) Топ-студенты (средний >= threshold)
-def top_students_by_avg(db: Database, threshold: float = 4.5):
-    sql = """
-    SELECT s.id AS student_id, s.name AS student_name,
-           AVG(g.grade) AS avg_grade, COUNT(g.grade) AS grades_count
-    FROM students s
-    JOIN grades g ON g.student_id = s.id
-    GROUP BY s.id, s.name
-    HAVING AVG(g.grade) >= ?
-    ORDER BY avg_grade DESC;
-    """
-    return db.exec_read(sql, (threshold,))
-
-# 6) Преподаватели: предметы и средний балл по их предметам
-def teachers_subjects_avg(db: Database):
-    sql = """
-    SELECT t.id AS teacher_id, t.name AS teacher_name,
-           sub.id AS subject_id, sub.title AS subject_title,
-           AVG(g.grade) AS avg_grade
-    FROM teachers t
-    LEFT JOIN subjects sub ON sub.id = t.subject_id
-    LEFT JOIN grades g ON g.subject_id = sub.id
-    GROUP BY t.id, t.name, sub.id, sub.title
-    ORDER BY t.id;
-    """
-    return db.exec_read(sql)
-
-# 7) Предметы без преподавателя
-def subjects_without_teacher(db: Database):
-    sql = """
-    SELECT sub.id AS subject_id, sub.title AS subject_title
-    FROM subjects sub
-    LEFT JOIN teachers t ON t.subject_id = sub.id
-    WHERE t.id IS NULL;
-    """
-    return db.exec_read(sql)
-
-# 8) Сколько раз каждый студент сдавал каждый предмет (COUNT per student+subject)
-def attempts_count_per_student_subject(db: Database):
-    sql = """
-    SELECT s.id AS student_id, s.name AS student_name,
-           sub.id AS subject_id, sub.title AS subject_title,
-           COUNT(g.id) AS attempts
-    FROM students s
-    LEFT JOIN grades g ON g.student_id = s.id
-    LEFT JOIN subjects sub ON sub.id = g.subject_id
-    GROUP BY s.id, sub.id
-    ORDER BY s.id, attempts DESC;
-    """
-    return db.exec_read(sql)
-
-# 9) Проверка ON DELETE CASCADE: удаляем студента и смотрим что произошло
-def delete_student_and_show_effect(db: Database, student_id: int):
-    # посчитаем оценки до удаления
-    before = db.exec_read("SELECT COUNT(*) AS cnt FROM grades WHERE student_id = ?;", (student_id,))[0]["cnt"]
-    # удаляем студента
-    db.exec_write("DELETE FROM students WHERE id = ?;", (student_id,))
-    after = db.exec_read("SELECT COUNT(*) AS cnt FROM grades WHERE student_id = ?;", (student_id,))[0]["cnt"]
-    return {"student_deleted": student_id, "grades_before": before, "grades_after": after}
+"""
+Модуль с реализацией практических задач.
+"""
 ```
 
-### Шаг 4 — Создаём `main.py` (меню и запуск)
-
-Файл, который запускает приложение, и предлагает пользователю выбор. Скопируйте:
+#### **interface.py** — CLI/меню для выбора задания и отображения результатов.
 
 ```python
-# main.py
-from core import Database
-import logic
+from core import Database, create_tables, seed_data
+from logic import sql_group_std_count
 
-def print_rows(rows):
+def show_data(rows):
+    """Печатает данные в виде таблицы."""
     if not rows:
-        print("Ничего не найдено.")
-        return
-    for r in rows:
-        # sqlite3.Row поддерживает доступ как по имени, так и по индексу
-        print(dict(r))
+        print("Нет данных")
+    for row in rows:
+        print(row)
 
-def main():
-    db = Database()
-    db.create_tables()
-    db.seed_data()  # если таблицы пусты — seed вставит данные
 
-    menu = {
-        "1": ("Список (студент, предмет, оценка) — INNER JOIN", lambda: logic.list_student_subject_grades(db)),
-        "2": ("Все студенты и их оценки (LEFT JOIN)", lambda: logic.list_students_with_optional_grades(db)),
-        "3": ("Кол-во студентов и оценок по предметам", lambda: logic.subject_student_counts(db)),
-        "4": ("Средний балл по предметам", lambda: logic.avg_grade_per_subject(db)),
-        "5": ("Топ-студенты по среднему (>=4.5)", lambda: logic.top_students_by_avg(db, 4.5)),
-        "6": ("Преподаватели: предметы и средний балл", lambda: logic.teachers_subjects_avg(db)),
-        "7": ("Предметы без преподавателя", lambda: logic.subjects_without_teacher(db)),
-        "8": ("Кол-во попыток (студент+предмет)", lambda: logic.attempts_count_per_student_subject(db)),
-        "9": ("Демонстрация транзакции (вставка + откат)", lambda: logic.transaction_demo(db)),
-        "10": ("Удалить студента и показать эффект ON DELETE CASCADE", lambda: logic.delete_student_and_show_effect(db, int(input('ID студента для удаления: ')))),
-        "0": ("Выход", None)
+def menu(db: Database):
+    actions = {
+        "1": ("Создать таблицы", lambda: create_tables(db)),
+        "2": ("Заполнить тестовыми данными", lambda: seed_data(db)),
+        "3": ("Показать всех студентов", lambda: show_data(
+            db.fetchall("SELECT id, first_name, last_name, email FROM students;")
+        )),
+        "4": ("Показать все предметы", lambda: show_data(
+            db.fetchall("SELECT id, name, teacher_id FROM subjects;")
+        )),
+        "5": ("Показать всех преподавателей", lambda: show_data(
+            db.fetchall("SELECT id, name, email FROM teachers;")
+        )),
+        '6': ('Тест', lambda: show_data(db.fetchall(sql_query))),
+        "0": ("Выход", lambda: exit(0))
     }
 
     while True:
-        print("\n=== Меню: JOIN и связанная практика ===")
-        for k, (desc, _) in menu.items():
-            print(f"{k}) {desc}")
-        choice = input("Выберите пункт: ").strip()
-        if choice == "0":
-            print("До встречи.")
-            break
-        if choice not in menu:
-            print("Неверный пункт.")
-            continue
-        desc, action = menu[choice]
-        print(f"\n--- {desc} ---")
-        try:
-            result = action()
-            # result может быть list[Row] либо dict (для операций)
-            if isinstance(result, list):
-                print_rows(result)
-            else:
-                print(result)
-        except Exception as e:
-            print("Ошибка при выполнении пункта:", e)
-        input("\nНажмите Enter чтобы продолжить...")
+        print("\nМеню:")
+        for key, (title, _) in actions.items():
+            print(f"{key}. {title}")
+        choice = input("Выберите действие: ")
 
-    db.close()
+        action = actions.get(choice)
+        if action:
+            action[1]()  # вызываем lambda
+        else:
+            print("Неверный выбор!")
+```
+
+#### **main.py** — точка входа: инициализация БД, меню, опции reset/seed и т.д.
+
+```python
+from core import Database
+from interface import menu
+
+def main():
+    db = Database("school.db")
+    try:
+        menu(db)
+    finally:
+        db.close()
 
 if __name__ == "__main__":
     main()
 ```
 
-**Пояснения:**
+---
 
-- `seed_data()` вызывается один раз при первом запуске. Если вы не хотите перезаписывать данные — не используйте `force=True`.
-- В пункте 10 запрашиваем `student_id` у пользователя и удаляем его — это демонстрация работы `ON DELETE CASCADE` на `grades`.
+## Практика 1
+
+### Таблицы
+
+```sql
+CREATE TABLE teachers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT,
+  email TEXT
+);
+
+CREATE TABLE subjects (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT,
+  teacher_id INTEGER,
+  FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE SET NULL
+);
+
+CREATE TABLE students (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  first_name TEXT,
+  last_name TEXT,
+  email TEXT,
+  subject_id INTEGER,
+  FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE
+);
+```
+
+### Фейковые данные
+
+**1. Учителя (`teachers`)**
+
+```sql
+INSERT INTO teachers (name, email) VALUES
+('Иван Петров', 'ivan.petrov@school.ru'),
+('Мария Сидорова', 'maria.sidorova@school.ru'),
+('Андрей Кузнецов', 'andrey.kuznetsov@school.ru'),
+('Ольга Иванова', 'olga.ivanova@school.ru'),
+('Сергей Смирнов', 'sergey.smirnov@school.ru'),
+('Екатерина Орлова', 'ekaterina.orlova@school.ru'),
+('Павел Волков', 'pavel.volkov@school.ru'),
+('Анна Громова', 'anna.gromova@school.ru'),
+('Дмитрий Никитин', 'dmitry.nikitin@school.ru'),
+('Наталья Романова', 'natalia.romanova@school.ru');
+```
+
+---
+
+**2. Предметы (`subjects`)**
+
+```sql
+INSERT INTO subjects (name, teacher_id) VALUES
+('Математика', 1),
+('Информатика', 2),
+('Физика', 3),
+('История', 4),
+('Литература', 5),
+('Английский язык', 6),
+('Биология', 7);
+```
+
+---
+
+**3. Студенты (`students`)**
+
+```sql
+INSERT INTO students (first_name, last_name, email, subject_id) VALUES
+('Алексей', 'Миронов', 'alexey.mironov@mail.ru', 1),
+('Елена', 'Иванова', 'elena.ivanova@mail.ru', 1),
+('Игорь', 'Поляков', 'igor.polyakov@mail.ru', 2),
+('Наталья', 'Соколова', 'natalia.sokolova@mail.ru', 2),
+('Кирилл', 'Волков', 'kirill.volkov@mail.ru', 2),
+('Мария', 'Кузнецова', 'maria.kuznetsova@mail.ru', 3),
+('Олег', 'Смирнов', 'oleg.smirnov@mail.ru', 3),
+('Евгения', 'Орлова', 'evgenia.orlova@mail.ru', 3),
+('Сергей', 'Громов', 'sergey.gromov@mail.ru', 4),
+('Дмитрий', 'Иванов', 'dmitry.ivanov@mail.ru', 4),
+('Анна', 'Романова', 'anna.romanova@mail.ru', 5),
+('Павел', 'Никитин', 'pavel.nikitin@mail.ru', 5),
+('Виктория', 'Петрова', 'victoria.petrova@mail.ru', 6),
+('Артем', 'Сидоров', 'artem.sidorov@mail.ru', 6),
+('Людмила', 'Гусева', 'lyudmila.guseva@mail.ru', 6),
+('Илья', 'Сорокин', 'ilya.sorokin@mail.ru', 7),
+('Дарья', 'Федорова', 'daria.fedorova@mail.ru', 7),
+('Владимир', 'Крылов', 'vladimir.krylov@mail.ru', 1),
+('Ольга', 'Семенова', 'olga.semenova@mail.ru', 2),
+('Галина', 'Лебедева', 'galina.lebedeva@mail.ru', 4);
+```
+
+---
+
+### Задачи:
+
+#### Задача 1.
+
+**Вывести всех студентов вместе с названием предмета, который они изучают.**
+
+#### Задача 2.
+
+**Показать имя учителя и предмет, который он преподаёт.**
+
+#### Задача 3.
+
+**Показать имя студента, название предмета и имя преподавателя.**
+
+#### Задача 4.
+
+**Показать всех преподавателей, включая тех, у кого пока нет предметов.**
+
+#### Задача 5.
+
+**Показать все предметы и количество студентов, изучающих каждый из них.**
+
+#### Задача 6.
+
+**Найти преподавателей, у которых больше 3 студентов.**
+
+#### Задача 7.
+
+**Создать кросс-продукт преподавателей и предметов (все возможные пары).**
+
+---
+
+### Решение:
+
+#### Задача 1.
+
+**Вывести всех студентов вместе с названием предмета, который они изучают.**
+
+> Тип JOIN: `INNER JOIN`
+
+```sql
+SELECT s.first_name, s.last_name, sub.name AS subject
+FROM students AS s
+INNER JOIN subjects AS sub ON s.subject_id = sub.id;
+```
+
+#### Задача 2.
+
+**Показать имя учителя и предмет, который он преподаёт.**
+
+> Тип JOIN: `INNER JOIN`
+
+```sql
+SELECT t.name AS teacher, sub.name AS subject
+FROM teachers AS t
+INNER JOIN subjects AS sub ON t.id = sub.teacher_id;
+```
+
+#### Задача 3.
+
+**Показать имя студента, название предмета и имя преподавателя.**
+
+> Тип JOIN: `INNER JOIN` (с тремя таблицами)
+
+```sql
+SELECT s.first_name, s.last_name, sub.name AS subject, t.name AS teacher
+FROM students AS s
+INNER JOIN subjects AS sub ON s.subject_id = sub.id
+INNER JOIN teachers AS t ON sub.teacher_id = t.id;
+```
+
+#### Задача 4.
+
+**Показать всех преподавателей, включая тех, у кого пока нет предметов.**
+
+> Тип JOIN: `LEFT JOIN`
+
+```sql
+SELECT t.name AS teacher, sub.name AS subject
+FROM teachers AS t
+LEFT JOIN subjects AS sub ON t.id = sub.teacher_id;
+```
+
+#### Задача 5.
+
+**Показать все предметы и количество студентов, изучающих каждый из них.**
+
+> Используется `LEFT JOIN` + `COUNT()`
+
+```sql
+SELECT sub.name AS subject, COUNT(s.id) AS student_count
+FROM subjects AS sub
+LEFT JOIN students AS s ON sub.id = s.subject_id
+GROUP BY sub.name;
+```
+
+#### Задача 6.
+
+**Найти преподавателей, у которых больше 3 студентов.**
+
+> Используется `INNER JOIN` + `GROUP BY` + `HAVING`
+
+```sql
+SELECT t.name AS teacher, COUNT(s.id) AS total_students
+FROM teachers AS t
+INNER JOIN subjects AS sub ON t.id = sub.teacher_id
+INNER JOIN students AS s ON sub.id = s.subject_id
+GROUP BY t.name
+HAVING COUNT(s.id) > 3;
+```
+
+#### Задача 7.
+
+**Создать кросс-продукт преподавателей и предметов (все возможные пары).**
+
+> Тип JOIN: `CROSS JOIN`
+
+```sql
+SELECT t.name AS teacher, sub.name AS subject
+FROM teachers AS t
+CROSS JOIN subjects AS sub;
+```
+
+---
+
+## Практика 2
+
+### Таблицы
+
+```sql
+CREATE TABLE teachers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT,
+  email TEXT
+);
+
+CREATE TABLE subjects (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT,
+  teacher_id INTEGER,
+  FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE SET NULL
+);
+
+CREATE TABLE groups (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT
+);
+
+CREATE TABLE students (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  first_name TEXT,
+  last_name TEXT,
+  email TEXT,
+  subject_id INTEGER,
+  FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE
+);
+
+CREATE TABLE group_student (
+  group_id INTEGER,
+  student_id INTEGER,
+  PRIMARY KEY (group_id, student_id),
+  FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE,
+  FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+);
+```
+
+### Фейковые данные
+
+**1. Учителя (`teachers`)**
+
+```sql
+INSERT INTO teachers (name, email) VALUES
+('Иван Петров', 'ivan.petrov@school.ru'),
+('Мария Сидорова', 'maria.sidorova@school.ru'),
+('Андрей Кузнецов', 'andrey.kuznetsov@school.ru'),
+('Ольга Иванова', 'olga.ivanova@school.ru'),
+('Сергей Смирнов', 'sergey.smirnov@school.ru'),
+('Екатерина Орлова', 'ekaterina.orlova@school.ru'),
+('Павел Волков', 'pavel.volkov@school.ru'),
+('Анна Громова', 'anna.gromova@school.ru'),
+('Дмитрий Никитин', 'dmitry.nikitin@school.ru'),
+('Наталья Романова', 'natalia.romanova@school.ru');
+```
+
+---
+
+**2. Предметы (`subjects`)**
+
+```sql
+INSERT INTO subjects (name, teacher_id) VALUES
+('Математика', 1),
+('Информатика', 2),
+('Физика', 3),
+('История', 4),
+('Литература', 5),
+('Английский язык', 6),
+('Биология', 7);
+```
+
+---
+
+**3. Группы (`groups`)**
+
+```sql
+INSERT INTO groups (name) VALUES
+('Поток А'),
+('Поток B'),
+('Поток C'),
+('Поток D');
+```
+
+---
+
+**4. Студенты (`students`)**
+
+```sql
+INSERT INTO students (first_name, last_name, email, subject_id) VALUES
+('Алексей', 'Миронов', 'alexey.mironov@mail.ru', 1),
+('Елена', 'Иванова', 'elena.ivanova@mail.ru', 1),
+('Игорь', 'Поляков', 'igor.polyakov@mail.ru', 2),
+('Наталья', 'Соколова', 'natalia.sokolova@mail.ru', 2),
+('Кирилл', 'Волков', 'kirill.volkov@mail.ru', 2),
+('Мария', 'Кузнецова', 'maria.kuznetsova@mail.ru', 3),
+('Олег', 'Смирнов', 'oleg.smirnov@mail.ru', 3),
+('Евгения', 'Орлова', 'evgenia.orlova@mail.ru', 3),
+('Сергей', 'Громов', 'sergey.gromov@mail.ru', 4),
+('Дмитрий', 'Иванов', 'dmitry.ivanov@mail.ru', 4),
+('Анна', 'Романова', 'anna.romanova@mail.ru', 5),
+('Павел', 'Никитин', 'pavel.nikitin@mail.ru', 5),
+('Виктория', 'Петрова', 'victoria.petrova@mail.ru', 6),
+('Артем', 'Сидоров', 'artem.sidorov@mail.ru', 6),
+('Людмила', 'Гусева', 'lyudmila.guseva@mail.ru', 6),
+('Илья', 'Сорокин', 'ilya.sorokin@mail.ru', 7),
+('Дарья', 'Федорова', 'daria.fedorova@mail.ru', 7),
+('Владимир', 'Крылов', 'vladimir.krylov@mail.ru', 1),
+('Ольга', 'Семенова', 'olga.semenova@mail.ru', 2),
+('Галина', 'Лебедева', 'galina.lebedeva@mail.ru', 4);
+```
+
+---
+
+**5. Связи `group_student`**
+
+- Группа A — 6 студентов
+- Группа B — 5 студентов
+- Группа C — 9 студентов
+- Группа D — пустая
+
+```sql
+-- Поток A
+INSERT INTO group_student (group_id, student_id) VALUES
+(1, 1), (1, 2), (1, 3), (1, 4), (1, 5), (1, 6);
+
+-- Поток B
+INSERT INTO group_student (group_id, student_id) VALUES
+(2, 7), (2, 8), (2, 9), (2, 10), (2, 11);
+
+-- Поток C
+INSERT INTO group_student (group_id, student_id) VALUES
+(3, 12), (3, 13), (3, 14), (3, 15), (3, 16), (3, 17), (3, 18), (3, 19), (3, 20);
+
+-- Поток D — пока без студентов
+```
+
+---
+
+### Задачи:
+
+#### Задача 1.
+
+**Вывести список всех студентов и групп, в которых они состоят.**
+
+#### Задача 2.
+
+**Показать все группы, включая те, где пока нет студентов.**
+
+#### Задача 3.
+
+**Показать имя студента, предмет, и группу, в которой он учится.**
+
+#### Задача 4.
+
+**Показать все группы и количество студентов в каждой.**
+
+#### Задача 5.
+
+**Показать всех преподавателей и студентов, изучающих их предметы.**
+
+#### Задача 6.
+
+**Показать список всех преподавателей и количество студентов у каждого.**
+
+#### Задача 7.
+
+**Создать кросс-продукт всех студентов и всех групп (все возможные сочетания).**
+
+---
+
+### Решение:
+
+#### Задача 1.
+
+**Вывести список всех студентов и групп, в которых они состоят.**
+
+> Тип JOIN: `INNER JOIN`
+
+```sql
+SELECT s.first_name, s.last_name, g.name AS group_name
+FROM students AS s
+INNER JOIN group_student AS gs ON s.id = gs.student_id
+INNER JOIN groups AS g ON gs.group_id = g.id;
+```
+
+---
+
+#### Задача 2.
+
+**Показать все группы, включая те, где пока нет студентов.**
+
+> Тип JOIN: `LEFT JOIN`
+
+```sql
+SELECT g.name AS group_name, s.first_name, s.last_name
+FROM groups AS g
+LEFT JOIN group_student AS gs ON g.id = gs.group_id
+LEFT JOIN students AS s ON s.id = gs.student_id;
+```
+
+---
+
+#### Задача 3.
+
+**Показать имя студента, предмет, и группу, в которой он учится.**
+
+> Тип JOIN: `INNER JOIN` с четырьмя таблицами
+
+```sql
+SELECT s.first_name, s.last_name, sub.name AS subject, g.name AS group_name
+FROM students AS s
+INNER JOIN subjects AS sub ON s.subject_id = sub.id
+INNER JOIN group_student AS gs ON s.id = gs.student_id
+INNER JOIN groups AS g ON gs.group_id = g.id;
+```
+
+---
+
+#### Задача 4.
+
+**Показать все группы и количество студентов в каждой.**
+
+> Тип JOIN: `LEFT JOIN` + `COUNT()`
+
+```sql
+SELECT g.name AS group_name, COUNT(gs.student_id) AS student_count
+FROM groups AS g
+LEFT JOIN group_student AS gs ON g.id = gs.group_id
+GROUP BY g.name;
+```
+
+---
+
+#### Задача 5.
+
+**Показать всех преподавателей и студентов, изучающих их предметы.**
+
+> Тип JOIN: `INNER JOIN` с тремя таблицами
+
+```sql
+SELECT t.name AS teacher, s.first_name, s.last_name, sub.name AS subject
+FROM teachers AS t
+INNER JOIN subjects AS sub ON t.id = sub.teacher_id
+INNER JOIN students AS s ON s.subject_id = sub.id;
+```
+
+---
+
+#### Задача 6.
+
+**Показать список всех преподавателей и количество студентов у каждого.**
+
+> Тип JOIN: `LEFT JOIN` + `COUNT()` + `GROUP BY`
+
+```sql
+SELECT t.name AS teacher, COUNT(s.id) AS total_students
+FROM teachers AS t
+LEFT JOIN subjects AS sub ON t.id = sub.teacher_id
+LEFT JOIN students AS s ON s.subject_id = sub.id
+GROUP BY t.name;
+```
+
+---
+
+#### Задача 7.
+
+**Создать кросс-продукт всех студентов и всех групп (все возможные сочетания).**
+
+> Тип JOIN: `CROSS JOIN`
+
+```sql
+SELECT s.first_name, s.last_name, g.name AS group_name
+FROM students AS s
+CROSS JOIN groups AS g;
+```
+
+---
+
+## Практика 3
+
+### Таблицы
+
+```sql
+CREATE TABLE teachers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT,
+  email TEXT
+);
+
+CREATE TABLE subjects (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT,
+  teacher_id INTEGER,
+  FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE SET NULL
+);
+
+CREATE TABLE groups (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT
+);
+
+CREATE TABLE students (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  first_name TEXT,
+  last_name TEXT,
+  email TEXT,
+  subject_id INTEGER,
+  FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE
+);
+
+CREATE TABLE group_student (
+  group_id INTEGER,
+  student_id INTEGER,
+  PRIMARY KEY (group_id, student_id),
+  FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE,
+  FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+);
+
+CREATE TABLE grades (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  student_id INTEGER,
+  subject_id INTEGER,
+  teacher_id INTEGER,
+  grade INTEGER,
+  FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+  FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE,
+  FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE SET NULL
+);
+```
+
+### Фейковые данные
+
+**1. Учителя (`teachers`)**
+
+```sql
+INSERT INTO teachers (name, email) VALUES
+('Иван Петров', 'ivan.petrov@school.ru'),
+('Мария Сидорова', 'maria.sidorova@school.ru'),
+('Андрей Кузнецов', 'andrey.kuznetsov@school.ru'),
+('Ольга Иванова', 'olga.ivanova@school.ru'),
+('Сергей Смирнов', 'sergey.smirnov@school.ru'),
+('Екатерина Орлова', 'ekaterina.orlova@school.ru'),
+('Павел Волков', 'pavel.volkov@school.ru'),
+('Анна Громова', 'anna.gromova@school.ru'),
+('Дмитрий Никитин', 'dmitry.nikitin@school.ru'),
+('Наталья Романова', 'natalia.romanova@school.ru');
+```
+
+---
+
+**2. Предметы (`subjects`)**
+
+```sql
+INSERT INTO subjects (name, teacher_id) VALUES
+('Математика', 1),
+('Информатика', 2),
+('Физика', 3),
+('История', 4),
+('Литература', 5),
+('Английский язык', 6),
+('Биология', 7);
+```
+
+---
+
+**3. Группы (`groups`)**
+
+```sql
+INSERT INTO groups (name) VALUES
+('Поток А'),
+('Поток B'),
+('Поток C'),
+('Поток D');
+```
+
+---
+
+**4. Студенты (`students`)**
+
+```sql
+INSERT INTO students (first_name, last_name, email, subject_id) VALUES
+('Алексей', 'Миронов', 'alexey.mironov@mail.ru', 1),
+('Елена', 'Иванова', 'elena.ivanova@mail.ru', 1),
+('Игорь', 'Поляков', 'igor.polyakov@mail.ru', 2),
+('Наталья', 'Соколова', 'natalia.sokolova@mail.ru', 2),
+('Кирилл', 'Волков', 'kirill.volkov@mail.ru', 2),
+('Мария', 'Кузнецова', 'maria.kuznetsova@mail.ru', 3),
+('Олег', 'Смирнов', 'oleg.smirnov@mail.ru', 3),
+('Евгения', 'Орлова', 'evgenia.orlova@mail.ru', 3),
+('Сергей', 'Громов', 'sergey.gromov@mail.ru', 4),
+('Дмитрий', 'Иванов', 'dmitry.ivanov@mail.ru', 4),
+('Анна', 'Романова', 'anna.romanova@mail.ru', 5),
+('Павел', 'Никитин', 'pavel.nikitin@mail.ru', 5),
+('Виктория', 'Петрова', 'victoria.petrova@mail.ru', 6),
+('Артем', 'Сидоров', 'artem.sidorov@mail.ru', 6),
+('Людмила', 'Гусева', 'lyudmila.guseva@mail.ru', 6),
+('Илья', 'Сорокин', 'ilya.sorokin@mail.ru', 7),
+('Дарья', 'Федорова', 'daria.fedorova@mail.ru', 7),
+('Владимир', 'Крылов', 'vladimir.krylov@mail.ru', 1),
+('Ольга', 'Семенова', 'olga.semenova@mail.ru', 2),
+('Галина', 'Лебедева', 'galina.lebedeva@mail.ru', 4);
+```
+
+---
+
+**5. Промежуточная таблица `group_student`**
+
+```sql
+-- Поток А
+INSERT INTO group_student (group_id, student_id) VALUES
+(1, 1), (1, 2), (1, 3), (1, 4), (1, 5), (1, 6);
+
+-- Поток B
+INSERT INTO group_student (group_id, student_id) VALUES
+(2, 7), (2, 8), (2, 9), (2, 10), (2, 11);
+
+-- Поток C
+INSERT INTO group_student (group_id, student_id) VALUES
+(3, 12), (3, 13), (3, 14), (3, 15), (3, 16), (3, 17), (3, 18), (3, 19), (3, 20);
+
+-- Поток D — пока пуст
+```
+
+---
+
+**6. Оценки (`grades`)**
+
+```sql
+INSERT INTO grades (student_id, subject_id, teacher_id, grade) VALUES
+(1, 1, 1, 10), (1, 2, 2, 8), (1, 3, 3, 11), (1, 4, 4, 9), (1, 6, 6, 12),
+(2, 1, 1, 9), (2, 2, 2, 10), (2, 5, 5, 7), (2, 6, 6, 10), (2, 7, 7, 8),
+(3, 2, 2, 11), (3, 3, 3, 9), (3, 4, 4, 10), (3, 5, 5, 8), (3, 6, 6, 11),
+(4, 1, 1, 8), (4, 2, 2, 12), (4, 3, 3, 9), (4, 4, 4, 7), (4, 7, 7, 10),
+(5, 1, 1, 6), (5, 2, 2, 7), (5, 3, 3, 8), (5, 5, 5, 9), (5, 6, 6, 10),
+(6, 3, 3, 12), (6, 4, 4, 10), (6, 5, 5, 11), (6, 6, 6, 9), (6, 7, 7, 10),
+(7, 1, 1, 8), (7, 2, 2, 9), (7, 3, 3, 11), (7, 4, 4, 10), (7, 5, 5, 7),
+(8, 1, 1, 10), (8, 3, 3, 11), (8, 5, 5, 8), (8, 6, 6, 9), (8, 7, 7, 12),
+(9, 2, 2, 8), (9, 3, 3, 10), (9, 4, 4, 11), (9, 5, 5, 7), (9, 6, 6, 10),
+(10, 1, 1, 7), (10, 2, 2, 9), (10, 3, 3, 11), (10, 5, 5, 10), (10, 6, 6, 8),
+(11, 4, 4, 12), (11, 5, 5, 9), (11, 6, 6, 10), (11, 7, 7, 11), (11, 1, 1, 8),
+(12, 2, 2, 9), (12, 3, 3, 8), (12, 4, 4, 10), (12, 5, 5, 11), (12, 7, 7, 7),
+(13, 6, 6, 12), (13, 2, 2, 9), (13, 3, 3, 10), (13, 4, 4, 8), (13, 7, 7, 9),
+(14, 1, 1, 11), (14, 2, 2, 10), (14, 3, 3, 9), (14, 4, 4, 12), (14, 5, 5, 10),
+(15, 1, 1, 9), (15, 2, 2, 8), (15, 3, 3, 10), (15, 5, 5, 9), (15, 7, 7, 11),
+(16, 6, 6, 11), (16, 2, 2, 9), (16, 3, 3, 10), (16, 5, 5, 8), (16, 7, 7, 12),
+(17, 4, 4, 10), (17, 3, 3, 9), (17, 6, 6, 12), (17, 7, 7, 8), (17, 5, 5, 11),
+(18, 1, 1, 12), (18, 2, 2, 9), (18, 3, 3, 8), (18, 5, 5, 10), (18, 7, 7, 11),
+(19, 4, 4, 9), (19, 2, 2, 10), (19, 6, 6, 11), (19, 7, 7, 8), (19, 1, 1, 12),
+(20, 3, 3, 11), (20, 4, 4, 10), (20, 5, 5, 9), (20, 6, 6, 12), (20, 7, 7, 8);
+```
+
+---
+
+### Задачи (усложнённые JOIN):
+
+#### Задача 1.
+
+**Показать имя студента, предмет и оценку.**
+
+#### Задача 2.
+
+**Показать среднюю оценку каждого студента.**
+
+#### Задача 3.
+
+**Показать среднюю оценку по каждому предмету.**
+
+#### Задача 4.
+
+**Показать всех студентов и их группы, даже если у студента нет оценок.**
+
+#### Задача 5.
+
+**Показать преподавателей и среднюю оценку по их предметам.**
+
+#### Задача 6. \* (Подзапрос)
+
+**Показать студентов с максимальной оценкой по каждому предмету.**
+
+#### Задача 7.
+
+**Показать среднюю оценку каждого потока.**
+
+### Решение:
+
+#### Задача 1.
+
+**Показать имя студента, предмет и оценку.**
+
+> `INNER JOIN` с таблицами `students`, `subjects`, `grades`
+
+```sql
+SELECT s.first_name, s.last_name, sub.name AS subject, g.grade
+FROM grades AS g
+INNER JOIN students AS s ON g.student_id = s.id
+INNER JOIN subjects AS sub ON g.subject_id = sub.id;
+```
+
+---
+
+#### Задача 2.
+
+**Показать среднюю оценку каждого студента.**
+
+> `INNER JOIN` + `GROUP BY` + `AVG()`
+
+```sql
+SELECT s.first_name, s.last_name, ROUND(AVG(g.grade), 2) AS avg_grade
+FROM students AS s
+INNER JOIN grades AS g ON s.id = g.student_id
+GROUP BY s.id;
+```
+
+---
+
+#### Задача 3.
+
+**Показать среднюю оценку по каждому предмету.**
+
+> `INNER JOIN` + `GROUP BY`
+
+```sql
+SELECT sub.name AS subject, ROUND(AVG(g.grade), 2) AS avg_grade
+FROM subjects AS sub
+INNER JOIN grades AS g ON sub.id = g.subject_id
+GROUP BY sub.name;
+```
+
+---
+
+#### Задача 4.
+
+**Показать всех студентов и их группы, даже если у студента нет оценок.**
+
+> `LEFT JOIN` между `students`, `group_student`, `groups` и `grades`
+
+```sql
+SELECT s.first_name, s.last_name, g2.name AS group_name, COUNT(g1.id) AS total_grades
+FROM students AS s
+LEFT JOIN group_student AS gs ON s.id = gs.student_id
+LEFT JOIN groups AS g2 ON gs.group_id = g2.id
+LEFT JOIN grades AS g1 ON s.id = g1.student_id
+GROUP BY s.id;
+```
+
+---
+
+#### Задача 5.
+
+**Показать преподавателей и среднюю оценку по их предметам.**
+
+> `INNER JOIN` + `GROUP BY`
+
+```sql
+SELECT t.name AS teacher, ROUND(AVG(g.grade), 2) AS avg_grade
+FROM teachers AS t
+INNER JOIN subjects AS sub ON t.id = sub.teacher_id
+INNER JOIN grades AS g ON sub.id = g.subject_id
+GROUP BY t.name;
+```
+
+---
+
+#### Задача 6.
+
+**Показать студентов с максимальной оценкой по каждому предмету.**
+
+> `INNER JOIN` + подзапрос (допускается, как часть JOIN)
+
+```sql
+SELECT s.first_name, s.last_name, sub.name AS subject, g.grade
+FROM grades AS g
+INNER JOIN students AS s ON g.student_id = s.id
+INNER JOIN subjects AS sub ON g.subject_id = sub.id
+WHERE g.grade = (
+  SELECT MAX(g2.grade)
+  FROM grades AS g2
+  WHERE g2.subject_id = g.subject_id
+);
+```
+
+---
+
+#### Задача 7.
+
+**Показать среднюю оценку каждого потока.**
+
+> Использует `INNER JOIN` между `groups`, `group_student`, `students`, `grades` + `AVG()`
+
+```sql
+SELECT gr.name AS group_name, ROUND(AVG(g.grade), 2) AS avg_grade
+FROM groups AS gr
+INNER JOIN group_student AS gs ON gr.id = gs.group_id
+INNER JOIN students AS s ON gs.student_id = s.id
+INNER JOIN grades AS g ON s.id = g.student_id
+GROUP BY gr.name;
+```
 
 ---
 
