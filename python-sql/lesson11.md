@@ -1,4 +1,4 @@
-# Модуль 2. Урок 11. Flask + SQLite3 + чистый HTML/CSS/JS.
+# Модуль 2. Урок 11. Flask + SQLite3 + HTML/CSS/JS.
 
 ## Как frontend и backend общаются между собой
 
