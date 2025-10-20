@@ -297,4 +297,4 @@ def show_genre(request, genre_id):
 
 ---
 
-[Предыдущий урок](lesson12.md) | [Следующий урок](lesson11.md)
+[Предыдущий урок](lesson12.md) | [Следующий урок](lesson14.md)
