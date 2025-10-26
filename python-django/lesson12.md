@@ -154,6 +154,33 @@ cinemahub/
 
 Все файлы из этой папки Django тоже сможет находить — благодаря параметру `STATICFILES_DIRS`.
 
+**Добавить стили и картинку в глобальную статику**:
+
+```css
+/* global.css */
+
+body {
+  background-color: #00165f;
+  color: antiquewhite;
+}
+```
+
+**Заменить ссылки на эти файлы в `base.html`**:
+
+```html
+<link rel="stylesheet" href="{% static 'css/global.css' %}" />
+```
+
+и
+
+```html
+<img
+  src="{% static 'images/logo.jpg' %}"
+  alt="CinemaHub Logo"
+  width="100"
+/>
+```
+
 ---
 
 ## Что происходит в режиме продакшена

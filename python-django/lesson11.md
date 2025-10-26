@@ -141,9 +141,22 @@ TEMPLATES = [
 
 Теперь Django будет искать шаблоны не только внутри приложений, но и в этой общей директории.
 
+## 5. Изменяем представление about во `views.py`
+
+```python
+# movies/views.py
+def about(request):
+    data = {
+        "title": "О сайте",
+        "menu": menu,
+        "films": data_db,
+    }
+    return render(request, "movies/about.html", data)
+```
+
 ---
 
-## 5. Проверка в браузере
+## 6. Проверка в браузере
 
 ✅ Запусти сервер:
 

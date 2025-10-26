@@ -34,7 +34,7 @@ def index(request):
         'menu': ['Главная', 'Фильмы', 'Контакты'],
         'films': data_db,
     }
-    return render(request, 'cinemahub/index.html', context=data)
+    return render(request, 'movies/index.html', context=data)
 ```
 
 Теперь создадим шаблон `index.html`:
@@ -165,6 +165,7 @@ def show_film(request, film_id):
 Добавим меню в `views.py`:
 
 ```python
+# movies/views.py
 menu = [
     {'title': "О сайте", 'url_name': 'about'},
     {'title': "Добавить фильм", 'url_name': 'add_film'},
@@ -176,6 +177,7 @@ menu = [
 Добавим маршруты и заглушки:
 
 ```python
+# movies/urls.py
 urlpatterns = [
     path('', views.index, name='home'),
     path('about/', views.about, name='about'),
@@ -184,6 +186,19 @@ urlpatterns = [
     path('login/', views.login, name='login'),
     path('film/<int:film_id>/', views.show_film, name='film'),
 ]
+```
+
+```python
+# movies/views.py
+def index(request):
+    data = {
+        'title': 'Главная страница',
+        'menu': menu, # Добавили меню
+        'films': data_db,
+    }
+    return render(request, 'movies/index.html', context=data)
+
+...
 
 def about(request):
     return HttpResponse("О сайте CinemaHub")

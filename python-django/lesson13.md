@@ -194,11 +194,125 @@ Django подставит отрендеренный шаблон `genres_list.h
 
 ---
 
-## Шаг 5. Добавим активный жанр
+## Шаг 5. Финальная сборка шаблонов
+
+**Напомним структуру проекта**:
+```
+movies/
+│── templates/
+│   ├── base.html
+│   ├── movies/
+│   │   ├── index.html
+│   │   ├── about.html
+│   │   ├── includes/
+│   │   │   ├── nav.html
+│   │   │   ├── index_content.html
+│   │   │   ├── genres_list.html
+```
+
+### **Изменим базовый шаблон `base.html`**
+
+Этот шаблон будет основой для всех остальных.
+Он подключает статику, загружает CSS и включает общие блоки сайта.
+
+```django
+{% load static %}
+{% load movies_tags %}
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Cinemahub — фильмы и жанры</title>
+    <link rel="stylesheet" href="{% static 'movies/css/styles.css' %}">
+</head>
+<body>
+    <header>
+        <h1><a href="{% url 'home' %}">🎬 Cinemahub</a></h1>
+        {% include 'movies/includes/nav.html' %}
+    </header>
+
+    <main class="container">
+        <aside class="sidebar">
+            <h3>Жанры</h3>
+            {% show_genres selected_genre %}
+        </aside>
+
+        <section class="content">
+            {% block content %}{% endblock %}
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2025 Cinemahub</p>
+    </footer>
+
+    <script src="{% static 'movies/js/main.js' %}"></script>
+</body>
+</html>
+```
+
+---
+
+### Создаём шаблоны страниц
+
+**Главная страница со списком фильмов `index.html`**.
+
+```django
+{% extends 'base.html' %}
+
+{% block content %}
+{% include 'movies/includes/index_content.html' %}
+{% endblock %}
+```
+
+---
+
+**Страница “О проекте” `about.html`**.
+
+```django
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>О проекте</h2>
+<p>Проект <strong>Cinemahub</strong> создан для изучения Django и представляет собой учебный портал о фильмах и жанрах. Здесь вы сможете практиковаться с шаблонами, статикой и пользовательскими тегами.</p>
+{% endblock %}
+```
+
+---
+
+### Навигация и контентные блоки
+
+**Меню сайта `includes/nav.html`**.
+
+```django
+<nav>
+    <ul>
+        <li><a href="{% url 'home' %}">Главная</a></li>
+        <li><a href="{% url 'about' %}">О проекте</a></li>
+    </ul>
+</nav>
+```
+
+---
+
+**Временный контент на главной `includes/index_content.html`**.
+
+```django
+{% load static %}
+
+<h2>Добро пожаловать в Cinemahub!</h2>
+<p>Здесь скоро появится каталог фильмов, поиск и фильтрация по жанрам. Пока мы учимся подключать шаблоны и статику.</p>
+<img src="{% static 'movies/images/poster_sample.jpg' %}" alt="Movie Poster">
+```
+
+---
+
+### Подключаем пользовательские теги
 
 Для красоты добавим возможность подсвечивать выбранный жанр.
 
-Изменим тег:
+**Изменим тег**:
 
 ```python
 @register.inclusion_tag('movies/includes/genres_list.html')
@@ -207,7 +321,7 @@ def show_genres(selected_genre=0):
     return {"genres": views.genres_db, "selected_genre": selected_genre}
 ```
 
-Теперь в шаблоне `genres_list.html` добавим условие:
+### **Шаблон `genres_list.html`**
 
 ```django
 <ul class="genres-list">
@@ -215,7 +329,7 @@ def show_genres(selected_genre=0):
     {% if g.id == selected_genre %}
       <li class="active">{{ g.name }}</li>
     {% else %}
-      <li><a href="#">{{ g.name }}</a></li>
+      <li><a href="{% url 'genre' g.id %}">{{ g.name }}</a></li>
     {% endif %}
   {% endfor %}
 </ul>
@@ -223,42 +337,131 @@ def show_genres(selected_genre=0):
 
 ---
 
-## Шаг 6. Передаём параметр из вьюшки
-
-В файле `views.py`:
+### **Сравниваем Вьюшки проекта**
 
 ```python
-from django.shortcuts import render
+...
+
+genres_db = [
+    {"id": 1, "name": "Боевики"},
+    {"id": 2, "name": "Драмы"},
+    {"id": 3, "name": "Комедии"},
+    {"id": 4, "name": "Фантастика"},
+]
+
 
 def index(request):
     return render(request, 'movies/index.html', {"selected_genre": 0})
 
 def show_genre(request, genre_id):
     return render(request, 'movies/index.html', {"selected_genre": genre_id})
+
+def about(request):
+    data = {
+        "title": "О сайте",
+        "menu": menu,
+        "films": data_db,
+    }
+    return render(request, "movies/about.html", data)
+
+...
 ```
 
-Теперь в `base.html` вызываем тег так:
+### **Добавляем путь для genre**
 
-```django
-{% show_genres selected_genre %}
+```python
+urlpatterns = [
+    path('', views.index, name='home'),
+    path('about/', views.about, name='about'),
+    path('add_film/', views.add_film, name='add_film'),
+    path('contact/', views.contact, name='contact'),
+    path('login/', views.login, name='login'),
+    path('film/<int:film_id>/', views.show_film, name='film'),
+
+    path('genre/<int:genre_id>/', views.show_genre, name='genre'),
+]
 ```
 
-После этого выбранный жанр подсветится в меню.
-Можно поэкспериментировать, передавая разные значения `selected_genre`.
+### **Добавляем стилизацию в `styles.css`**
 
----
+```css
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f3f3f3;
+    color: #333;
+    margin: 0;
+    padding: 0;
+}
 
-## Проверяем результат
+header {
+    background-color: #242424;
+    color: white;
+    padding: 15px;
+}
 
-1. Запусти сервер:
+header a {
+    color: white;
+    text-decoration: none;
+    margin-right: 10px;
+}
+
+.container {
+    display: flex;
+    gap: 20px;
+    padding: 20px;
+}
+
+.sidebar {
+    width: 25%;
+    background-color: #fff;
+    padding: 15px;
+    border-radius: 8px;
+}
+
+.genres-list {
+    list-style: none;
+    padding: 0;
+}
+
+.genres-list li {
+    margin-bottom: 8px;
+}
+
+.genres-list li.active {
+    font-weight: bold;
+    color: #d22;
+}
+
+.content {
+    width: 75%;
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+}
+```
+
+### Проверяем результат
+
+1. Убедись, что в `settings.py` прописано:
+
+   ```python
+   STATIC_URL = '/static/'
+   STATICFILES_DIRS = [BASE_DIR / 'static']
+   ```
+
+2. Запусти сервер:
 
    ```bash
    python manage.py runserver
    ```
 
-2. Открой `/` — увидишь список жанров.
-3. Попробуй открыть `/genre/2/` (если маршрут настроен) — жанр «Драмы» должен выделиться.
-4. Проверь консоль браузера на наличие ошибок — всё должно отрисовываться без 404 и шаблонных исключений.
+3. Перейди на:
+
+   * `/` — откроется главная страница с постером.
+   * `/about/` — страница о проекте.
+   * `/genre/2/` — жанр “Комедии” подсветится в боковом меню.
+
+4. Проверь консоль браузера — не должно быть ошибок загрузки статики.
 
 ---
 
