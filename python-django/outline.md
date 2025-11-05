@@ -20,6 +20,7 @@
 - [Урок 13. Пользовательские теги шаблонов. Декораторы `simple_tag` и `inclusion_tag`](lesson13.md)
 
 ## Модуль 3. Введение в ORM и модели
+
 - [Урок 14. Что такое БД, SQL и ORM. Создание первой модели](lesson14.md)
 - [Урок 15. Создание и запуск файлов миграций в Django](lesson15.md)
 - [Урок 16. Понятие CRUD. Добавление записей в таблицу БД. Модуль django-extensions](lesson16.md)
@@ -27,6 +28,17 @@
 - [Урок 18. Сортировка, изменение и удаление записей в Django ORM](lesson18.md)
 - [Урок 19. Слаги (slug) в URL-адресах и метод get_absolute_url()](lesson19.md)
 - [Урок 20. Создание пользовательского менеджера модели](lesson20.md)
+
+## Модуль 4. Связи между таблицами
+
+- [Урок 21. Типы связей между моделями в Django: ForeignKey, ManyToManyField, OneToOneField](lesson21.md)
+- [Урок 22. Связь Many-to-One (многие к одному) с ForeignKey в Django](lesson22.md)
+- [Урок 23. ORM-команды для связи Many-to-One](lesson23.md)
+- [Урок 24. Связь Many-to-Many (многие ко многим) в Django](lesson24.md)
+- [Урок 25. Добавление тегов на сайт](lesson25.md)
+- [Урок 26. Связь One-To-One (Один к одному)](lesson26.md)
+
+## Модуль 5. Погружение в ORM Django
 
 ---
 
