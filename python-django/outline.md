@@ -40,6 +40,15 @@
 
 ## Модуль 5. Погружение в ORM Django
 
+- [Урок 27. ORM-команды с классом Q в Django](lesson27.md)
+- [Урок 28. Методы выбора записей в Django ORM: first(), last(), exists(), count()](lesson28.md)
+- [Урок 29. Класс F, Value и метод annotate() в Django ORM](lesson29.md)
+- [Урок 30. Агрегирующие функции Count, Sum, Avg, Max, Min. Метод values()](lesson30.md)
+- [Урок 31. Группировка записей в Django ORM](lesson31.md)
+- [Урок 32. Оптимизация сайта с Django Debug Toolbar](lesson32.md)
+
+## Модуль 6. Работа с админ-панелью
+
 ---
 
 [Список всех курсов](../README.md)
