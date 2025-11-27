@@ -303,10 +303,10 @@ templates/admin/base.html
 
 ## 10. Полный пример стилизованной админ-панели (готовый вариант)
 
-📁 `templates/admin/base_site.html`
-📁 `templates/admin/index.html`
-📁 `static/css/admin/custom-admin.css`
-📁 `static/img/cinemahub-logo.svg`
+* 📁 `templates/admin/base_site.html`
+* 📁 `templates/admin/index.html`
+* 📁 `static/css/admin/custom-admin.css`
+* 📁 `static/img/cinemahub-logo.svg`
 
 Стилизация включает:
 
