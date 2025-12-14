@@ -69,6 +69,16 @@
 
 ## Модуль 8. Классы представлений
 
+- [Урок 47. Введение в CBV (Class Based Views). Классы View и TemplateView](lesson47.md)
+- [Урок 48. Класс ListView в Django](lesson48.md)
+- [Урок 49. Класс DetailView в Django](lesson49.md)
+- [Урок 50. Класс FormView в Django](lesson50.md)
+- [Урок 51. Классы CreateView и UpdateView в Django](lesson51.md)
+- [Урок 52. Mixins как способ улучшения программного кода](lesson52.md)
+- [Урок 53. Введение в пагинацию. Класс Paginator](lesson53.md)
+- [Урок 54. Пагинация с использованием ListView в Django](lesson54.md)
+
+## Модуль 9. Авторизация и регистрация
 ---
 
 [Список всех курсов](../README.md)

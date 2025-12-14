@@ -77,6 +77,139 @@ class AddMovieForm(forms.Form):
 - используют удобные HTML-виджеты
 - содержат настройки отображения (классы, размеры)
 
+## Самые распространённые поля и ключевые аргументы
+
+### **`CharField` — текстовое поле (однострочное)**
+
+```py
+title = forms.CharField(
+    max_length=255,
+    min_length=2,
+    required=True,
+    label="Название",
+    initial="Matrix",
+    help_text="Укажите название фильма",
+    error_messages={'required': 'Введите название'},
+    widget=forms.TextInput(attrs={'class':'form-input','placeholder':'Название'})
+)
+```
+
+- `max_length`, `min_length` — валидация по длине.
+- `widget` — задаёт HTML-виджет (обычно `TextInput`).
+
+### **`IntegerField` / `FloatField` / `DecimalField` — числа**
+
+```py
+year = forms.IntegerField(min_value=1900, max_value=2100, initial=1999)
+rating = forms.DecimalField(max_digits=3, decimal_places=1, required=False)
+```
+
+- `min_value` / `max_value` — числовые ограничения.
+- На уровне HTML можно использовать `NumberInput` через `widget`.
+
+### **`BooleanField` — чекбокс (True/False)**
+
+```py
+is_published = forms.BooleanField(required=False, initial=True, label="Опубликовано")
+```
+
+- Если `required=True`, чекбокс обязан быть отмечен; чаще ставят `required=False`.
+
+### **`ChoiceField` / `TypedChoiceField` — выбор из списка (одно значение)**
+
+```py
+CHOICES = [('A','A'),('B','B')]
+choice = forms.ChoiceField(choices=CHOICES, widget=forms.Select, required=True)
+```
+
+- `choices` — список кортежей `(value, label)`.
+- Для приведения типов есть `TypedChoiceField`.
+
+---
+
+### **`MultipleChoiceField` / `TypedMultipleChoiceField` — множественный выбор**
+
+```py
+tags = forms.MultipleChoiceField(choices=TAG_CHOICES, widget=forms.CheckboxSelectMultiple)
+```
+
+- Возвращает список выбранных значений. Для отображения можно использовать `CheckboxSelectMultiple` или `SelectMultiple`.
+
+---
+
+### **`FileField` / `ImageField` — загрузка файлов / изображений**
+
+```py
+file = forms.FileField()
+image = forms.ImageField(required=False)
+```
+
+- При валидации `image` использует Pillow; `file` — общий файл. После валидации в `cleaned_data` лежит объект `UploadedFile`. ([sibyx.github.io][3])
+
+---
+
+### **`DateField` / `DateTimeField` / `TimeField` — даты и время**
+
+```py
+release_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
+```
+
+- Обычно используют HTML5 widgets (`type="date"`).
+
+---
+
+### **`SlugField` — для slug (латинские буквы, цифры, дефис и т. п.)**
+
+```py
+slug = forms.SlugField(max_length=255)
+```
+
+- Содержит встроенную простую валидацию формата.
+
+---
+
+### **`ModelChoiceField` / `ModelMultipleChoiceField` — поля для связей с моделями**
+
+```py
+genre = forms.ModelChoiceField(queryset=Genre.objects.all(), empty_label="Жанр не выбран")
+actors = forms.ModelMultipleChoiceField(queryset=Actor.objects.all(), widget=forms.CheckboxSelectMultiple)
+```
+
+- `ModelChoiceField` возвращает **экземпляр модели** в `cleaned_data` (для ForeignKey/OneToOne аналог).
+- `ModelMultipleChoiceField` возвращает queryset (список объектов) — для ManyToMany.
+- Можно контролировать `label_from_instance()` для кастомного отображения вариантов. Документация по созданию форм из моделей полезна.
+
+---
+
+## **Короткая «шпаргалка»**
+
+```py
+# текст
+name = forms.CharField(max_length=100, required=True, label="Имя", widget=forms.TextInput(attrs={'class':'input'}))
+
+# число
+year = forms.IntegerField(min_value=1900, max_value=2100, initial=2020)
+
+# да/нет
+is_pub = forms.BooleanField(required=False, initial=True)
+
+# выбор из списка
+genre = forms.ModelChoiceField(queryset=Genre.objects.all(), empty_label="Не выбран", label="Жанр")
+
+# множественный выбор (M2M)
+tags = forms.ModelMultipleChoiceField(queryset=Tag.objects.all(), widget=forms.CheckboxSelectMultiple)
+
+# файл / изображение
+poster = forms.ImageField(required=False)
+
+# кастомный валидатор
+from django.core.exceptions import ValidationError
+def no_digits(value):
+    if any(ch.isdigit() for ch in value):
+        raise ValidationError("Цифры запрещены")
+title = forms.CharField(validators=[no_digits])
+```
+
 ---
 
 ## 3. Отображаем форму вручную в шаблоне
@@ -109,9 +242,13 @@ class AddMovieForm(forms.Form):
 
 Таким образом:
 
-- ошибки выводятся прямо под полями
-- подписи к полям читаемы
-- код легко расширять
+- Метод `form.non_field_errors()` возвращает список ошибок, не привязанных к конкретным полям.
+- `f` — это объект типа `BoundField`, обёртка над полем формы.
+- `f.id_for_label` — даёт HTML-id этого поля, пригодный для атрибута `for` в теге `<label>`, так что при клике на текст метки фокус будет установлен на связанное поле. Это автоматическая удобная связь label ↔ input.
+- `f.label` — отображаемая «человекочитаемая» метка поля (взята из `field.label` или автоматически сгенерирована).
+- `f.errors` — ошибки валидации, относящиеся к конкретному полю. Если поле не прошло проверку, `f.errors` будет содержать список сообщений об ошибках (обычно список или объект ошибок), и их можно отобразить рядом с полем.
+
+Эта модель (Form → BoundField → шаблон) даёт гибкий контроль над HTML-разметкой формы: ты можешь оборачивать поля в нужные теги, добавлять классы, div-контейнеры, а не полагаться на автоматический `{{ form.as_p }}`.
 
 ---
 
@@ -145,6 +282,12 @@ def add_movie(request):
 
     return render(request, "cinemahub/add_movie.html", {"form": form})
 ```
+
+Таким образом:
+
+- `form.cleaned_data` - Доступ к очищенным данным. После того, как ты вызвал `form.is_valid()` и проверка прошла — Django соберёт и преобразует данные формы (приведёт к нужным типам, применит валидацию) и сохранит их в словаре `form.cleaned_data`. Обычно из `cleaned_data` берут данные, чтобы создать объект модели (или что-то ещё). Если форма не валидна — `cleaned_data` может быть неполным (только поля, прошедшие проверку), или отсутствовать.
+
+- `form.add_error()` - Добавление ошибки вручную. Первым аргументом передаётся имя поля, или `None`, если ошибка общая. При этом Django автоматически удаляет соответствующее поле из `cleaned_data`, чтобы не сохранить некорректные данные. После этого, проверка `form.is_valid()` вернёт `False`, и `form.non_field_errors()` вернёт список с вашим сообщением.
 
 ---
 
@@ -337,3 +480,9 @@ rating = forms.IntegerField(
 ---
 
 [Предыдущий урок](lesson40.md) | [Следующий урок](lesson42.md)
+
+---
+
+# Docs:
+
+[Forms](https://docs.djangoproject.com/en/6.0/ref/forms)
