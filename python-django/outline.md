@@ -78,7 +78,24 @@
 - [Урок 53. Введение в пагинацию. Класс Paginator](lesson53.md)
 - [Урок 54. Пагинация с использованием ListView в Django](lesson54.md)
 
-## Модуль 9. Авторизация и регистрация
+## Модуль 9. Авторизация, регистрация, разрешения
+
+- [Урок 55. Введение в авторизацию пользователей в Django](lesson55.md)
+- [Урок 56. Авторизация пользователей. Функции `authenticate()` и `login()`](lesson56.md)
+- [Урок 57. Классы `LoginView`, `LogoutView` и `AuthenticationForm`](lesson57.md)
+- [Урок 58. Декоратор `login_required` и класс `LoginRequiredMixin`](lesson58.md)
+- [Урок 59. Регистрация пользователей через функции представления](lesson59.md)
+- [Урок 60. Класс UserCreationForm](lesson60.md)
+- [Урок 61. Авторизация через email. Профайл пользователя](lesson61.md)
+- [Урок 62. Изменение пароля пользователя в Django](lesson62.md)
+- [Урок 63. Восстановление пароля пользователя в Django](lesson63.md)
+- [Урок 64. Настройка отправки email по SMTP в Django](lesson64.md)
+- [Урок 65. Расширение модели пользователя в Django (AbstractUser)](lesson65.md)
+- [Урок 66. Разрешения и группы (Permissions & Groups)](lesson66.md)
+
+
+## Модуль 10. PostgreSQL и другие улучшения
+
 ---
 
 [Список всех курсов](../README.md)
