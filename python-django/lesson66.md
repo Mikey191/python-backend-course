@@ -331,3 +331,5 @@ user.has_perm('movies.can_publish_movie')
 8. Как проверить разрешения в шаблоне?
 
 ---
+
+[Предыдущий урок](lesson65.md) | [Следующий урок](lesson67.md)
