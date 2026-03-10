@@ -1,5 +1,7 @@
 /stocks
-/python-django/moduls
+# /python-django/moduls
+# /python-oop/moduls/
+**/moduls/
 notes.md
 contents.md
 template_request.md
