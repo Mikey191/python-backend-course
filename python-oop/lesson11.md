@@ -149,9 +149,7 @@ class AppConfig:
     """
 
     def __init__(self, **settings):
-        # Используем object.__setattr__, чтобы избежать рекурсии,
-        # если позже мы переопределим __setattr__
-        object.__setattr__(self, '_settings', settings)
+        self._settings = settings
 
     def __getattribute__(self, name):
         # Служебные атрибуты (начинающиеся с '_') не логируем —
@@ -162,9 +160,12 @@ class AppConfig:
 
 
 config = AppConfig()
-object.__setattr__(config, 'DEBUG', True)
-object.__setattr__(config, 'DATABASE_URL', 'postgresql://localhost/mydb')
-object.__setattr__(config, 'SECRET_KEY', 'supersecret')
+# создаем параметры config
+config.DEBUG = True
+config.DATABASE_URL = 'postgresql://localhost/mydb'
+config.SECRET_KEY = 'supersecret'
+
+_ = config._settings
 
 _ = config.DEBUG
 # [CONFIG READ] параметр 'DEBUG' запрошен
@@ -222,7 +223,7 @@ class HTTPResponse:
         self.status_code = status_code
         self.body = body
         # Нормализуем ключи заголовков к нижнему регистру
-        self.headers = {k.lower(): v for k, v in (headers or {}).items()}
+        self.headers = {k.lower(): v for k, v in headers.items()}
 
     def __getattr__(self, name):
         # Если атрибут не найден обычным способом, ищем его среди заголовков.
