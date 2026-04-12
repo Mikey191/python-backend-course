@@ -2,45 +2,6 @@
 
 ---
 
-## План урока
-
-**1. Зачем нужен `super()` — проблема прямого вызова родителя по имени.**
-Что происходит, если вместо `super()` написать `ParentClass.method(self, ...)`. Почему это работает в простых случаях, но ломается при переименовании класса, при множественном наследовании и при рефакторинге. `super()` как правильное решение этой проблемы.
-
-**2. Что возвращает `super()` — прокси-объект.**
-`super()` не возвращает родительский класс напрямую — он возвращает прокси-объект, который перенаправляет вызовы методов по цепочке MRO. Разница между «вызвать метод родителя» и «вызвать следующий метод по MRO».
-
-**3. Синтаксис `super()` в Python 3.**
-`super()` без аргументов — краткий синтаксис, доступный только в Python 3. `super(ClassName, self)` — явный синтаксис Python 2, всё ещё встречается в старом коде. Где можно и нельзя вызывать `super()` без аргументов.
-
-**4. `super()` в `__init__`: делегирование инициализации.**
-Правило: всегда вызывать `super().__init__()` в начале дочернего `__init__`. Почему «в начале» — атрибуты родителя нужны дочернему классу с первой строки. Что происходит, если вызвать в конце или не вызвать совсем.
-
-**5. `super()` в обычных методах: расширение поведения.**
-Паттерн «обёртка»: дочерний класс делает что-то до вызова родителя, вызывает родителя, делает что-то после. Выбор места вызова `super()` — до или после — определяет логику. Практические примеры с методами `save()`, `validate()`, `send()`.
-
-**6. `super()` и цепочка вызовов при одиночном наследовании.**
-Полная трассировка вызовов в трёхуровневой иерархии. Как `super()` в каждом классе передаёт управление следующему по MRO. Почему важно вызывать `super()` на каждом уровне.
-
-**7. Неочевидный момент: `super()` идёт по MRO, а не «вверх к родителю».**
-В случае одиночного наследования разницы нет. Но это разные концепции. Подготовка к уроку про множественное наследование: `super()` в классе B не всегда вызывает метод класса A — он может вызвать метод класса C, если C стоит раньше A в MRO.
-
-**8. Практический пример: иерархия валидаторов.**
-Класс `BaseValidator` → `TypeValidator` → `RangeValidator`. Каждый уровень добавляет свою проверку через `super().validate()`. Полная цепочка вызовов при валидации данных форм и API.
-
-**9. Практический пример: иерархия middleware.**
-Django Middleware как пример делегирования через `super()`. Класс `BaseMiddleware` → `LoggingMiddleware` → `AuthMiddleware`. Как `super().__call__()` передаёт запрос по цепочке обработчиков.
-
-**10. `super()` для доступа к атрибутам класса-родителя.**
-`super()` можно использовать не только для методов, но и для обращения к атрибутам класса. Когда это нужно и когда достаточно просто `ParentClass.attr`.
-
-**11. Неочевидные моменты и типичные ошибки.**
-Вызов `super().__init__()` после присваивания атрибутов, которые переопределяют метод — ситуация, когда порядок имеет значение. Забытый `super()` в середине иерархии обрывает цепочку. `super()` вне метода класса вызывает `RuntimeError`. Почему нельзя кешировать результат `super()` в атрибут.
-
-**12. Вопросы (8 штук) и задачи (6 штук).**
-
----
-
 ## Зачем нужен `super()` — проблема прямого вызова
 
 В предыдущем уроке мы видели, что дочерний класс может расширить метод родителя, вызвав его внутри переопределённого метода. Самый очевидный способ это сделать — вызвать метод родительского класса напрямую по имени:
@@ -879,63 +840,34 @@ class MyClass:
 
 ---
 
-## Контрольные вопросы
+## Вопросы
 
-**Вопрос 1.** Почему вызов родительского метода через `ParentClass.method(self, ...)` хуже, чем через `super().method(...)`? Назовите три недостатка прямого вызова.
-
-> **Ответ.** Первый: привязка к конкретному имени класса — при переименовании родителя придётся исправлять все прямые вызовы. Второй: поломка при множественном наследовании — прямой вызов нарушает MRO и может привести к тому, что часть классов в иерархии будет вызвана дважды или не вызвана совсем. Третий: хрупкость при рефакторинге — вставка промежуточного класса в иерархию разрывает цепочку, потому что дочерний класс обходит промежуточный, обращаясь напрямую к более далёкому предку.
-
----
-
-**Вопрос 2.** Что возвращает вызов `super()`? Это экземпляр родительского класса?
-
-> **Ответ.** Нет. `super()` возвращает специальный прокси-объект типа `super`. Этот объект знает текущий класс и текущий экземпляр, и при вызове метода на нём ищет метод по MRO, начиная со следующего класса после текущего. Это принципиально отличается от «экземпляра родительского класса» — именно поэтому `super()` корректно работает при множественном наследовании.
-
----
-
-**Вопрос 3.** Почему рекомендуется вызывать `super().__init__()` в начале дочернего `__init__`, а не в конце?
-
-> **Ответ.** Если родительский `__init__` вызывает какой-либо метод, переопределённый в дочернем классе (например, `setup()`), то дочерняя реализация этого метода может обращаться к атрибутам, установленным в `__init__` дочернего класса. Если `super().__init__()` вызывается в конце — эти атрибуты ещё не существуют в момент вызова, что приводит к `AttributeError`. Вызов в начале гарантирует, что атрибуты родителя инициализированы до того, как дочерний класс начнёт с ними работать.
+1. Почему вызов родительского метода через `ParentClass.method(self, ...)` хуже, чем через `super().method(...)`? Назовите три недостатка прямого вызова.
+2. Что возвращает вызов `super()`? Это экземпляр родительского класса?
+3. Почему рекомендуется вызывать `super().__init__()` в начале дочернего `__init__`, а не в конце?
+4. Что произойдёт, если в трёхуровневой иерархии `C → B → A` класс `B` не вызывает `super().process()` в своём методе `process()`?
+5. Как выбор места вызова `super()` (до или после собственного кода метода) влияет на поведение?
+6. Чем `super()` в классе `B` отличается при вызове `b = B()` и при вызове `d = D()`, где `D` наследует от `B` и `C`? Почему важно это понимать?
+7. Можно ли вызвать `super()` без аргументов вне метода класса? Что произойдёт?
+8. В примере с middleware из лекции `AuthMiddleware` при неавторизованном запросе не вызывает `super().__call__()`. Что это означает для цепочки обработки?
 
 ---
 
-**Вопрос 4.** Что произойдёт, если в трёхуровневой иерархии `C → B → A` класс `B` не вызывает `super().process()` в своём методе `process()`?
+## Задачи
 
-> **Ответ.** Цепочка вызовов оборвётся на классе `B`. Когда `C.process()` вызовет `super().process()`, выполнится `B.process()`. Но поскольку `B.process()` не вызывает `super()`, метод `A.process()` никогда не будет выполнен. Это распространённая ошибка при рефакторинге — разработчик добавляет промежуточный класс и забывает вызвать `super()`, тем самым прерывая цепочку.
+### **Задача 1**. 
 
----
+Класс `ColoredPoint`
 
-**Вопрос 5.** Как выбор места вызова `super()` (до или после собственного кода метода) влияет на поведение?
+Создайте базовый класс `Point` с атрибутами `x` и `y` (числа) и методами `move(dx, dy)` (смещение), `distance_to_origin()` (расстояние до начала координат) и `__str__` в формате `"(x, y)"`. 
 
-> **Ответ.** Если `super()` вызывается в начале метода — родительский код выполняется сначала, а дочерний код является «пост-обработкой». Если в конце — дочерний код является «пре-обработкой», а родитель вызывается после. Если `super()` вызывается в середине — это «обёртка»: дочерний код выполняется и до, и после родительского. Выбор определяется логикой: например, в `__init__` почти всегда `super()` первым (чтобы атрибуты родителя были доступны), в `save()` с валидацией — `super()` после проверок.
+Создайте дочерний класс `ColoredPoint(Point)`, который добавляет атрибут `color` (строка). В `__init__` используйте `super().__init__()`. 
 
----
+Переопределите `__str__` так, чтобы он возвращал строку в формате `"(x, y) [color]"`, используя `super().__str__()` для получения базовой части. 
 
-**Вопрос 6.** Чем `super()` в классе `B` отличается при вызове `b = B()` и при вызове `d = D()`, где `D` наследует от `B` и `C`? Почему важно это понимать?
+Переопределите `move()` так, чтобы он выводил сообщение о перемещении вида `"Перемещаем [color] точку"` до вызова `super().move()`.
 
-> **Ответ.** В первом случае `super()` в `B.method()` будет указывать на следующий класс по MRO объекта `b` — то есть на `A` (прямого родителя `B`). Во втором случае MRO объекта `d` другое: `D → B → C → A`. Поэтому `super()` в `B.method()` при вызове через объект `D` будет указывать на `C`, а не на `A`. Это означает, что `super()` в классе `B` не всегда вызывает один и тот же следующий класс — это зависит от полного MRO конкретного объекта. Именно поэтому «следующий по MRO» и «родительский класс» — разные концепции.
-
----
-
-**Вопрос 7.** Можно ли вызвать `super()` без аргументов вне метода класса? Что произойдёт?
-
-> **Ответ.** Нет, нельзя. `super()` без аргументов использует специальный механизм Python — неявную переменную `__class__`, которая создаётся компилятором только внутри методов, объявленных в теле класса. При вызове `super()` вне такого контекста Python не может определить, к какому классу относится вызов, и выбросит `RuntimeError: super(): __class__ cell not found`.
-
----
-
-**Вопрос 8.** В примере с middleware из лекции `AuthMiddleware` при неавторизованном запросе не вызывает `super().__call__()`. Что это означает для цепочки обработки?
-
-> **Ответ.** Это означает, что цепочка middleware прерывается: последующие middleware (`LoggingMiddleware`, `TimingMiddleware`) и финальный view-обработчик не вызываются вообще. `AuthMiddleware` сразу возвращает ответ `401 Unauthorized`. Именно такое поведение и нужно: нет смысла логировать время обработки или выполнять бизнес-логику, если запрос не прошёл аутентификацию. Это один из паттернов использования `super()`: дочерний класс может принять решение не передавать управление дальше по цепочке.
-
----
-
-## Практические задачи
-
-### Задача 1. Класс `ColoredPoint`
-
-Создайте базовый класс `Point` с атрибутами `x` и `y` (числа) и методами `move(dx, dy)` (смещение), `distance_to_origin()` (расстояние до начала координат) и `__str__` в формате `"(x, y)"`. Создайте дочерний класс `ColoredPoint(Point)`, который добавляет атрибут `color` (строка). В `__init__` используйте `super().__init__()`. Переопределите `__str__` так, чтобы он возвращал строку в формате `"(x, y) [color]"`, используя `super().__str__()` для получения базовой части. Переопределите `move()` так, чтобы он выводил сообщение о перемещении вида `"Перемещаем [color] точку"` до вызова `super().move()`.
-
-Пример использования:
+**Пример использования**:
 
 ```python
 p = Point(1, 2)
@@ -952,66 +884,21 @@ print(isinstance(cp, Point))        # True
 print(isinstance(cp, ColoredPoint)) # True
 ```
 
-**Решение:**
-
-```python
-import math
-
-
-class Point:
-    def __init__(self, x, y):
-        self.x = x
-        self.y = y
-
-    def move(self, dx, dy):
-        self.x += dx
-        self.y += dy
-
-    def distance_to_origin(self):
-        return math.sqrt(self.x ** 2 + self.y ** 2)
-
-    def __str__(self):
-        return f"({self.x}, {self.y})"
-
-    def __repr__(self):
-        return f"Point({self.x}, {self.y})"
-
-
-class ColoredPoint(Point):
-    def __init__(self, x, y, color):
-        super().__init__(x, y)
-        self.color = color
-
-    def move(self, dx, dy):
-        print(f"Перемещаем {self.color} точку")
-        super().move(dx, dy)
-
-    def __str__(self):
-        return f"{super().__str__()} [{self.color}]"
-
-    def __repr__(self):
-        return f"ColoredPoint({self.x}, {self.y}, {self.color!r})"
-
-
-p = Point(1, 2)
-cp = ColoredPoint(3, 4, "red")
-
-print(p)       # (1, 2)
-print(cp)      # (3, 4) [red]
-
-cp.move(1, 1)  # Перемещаем red точку
-print(cp)      # (4, 5) [red]
-
-print(isinstance(cp, Point))   # True
-```
-
 ---
 
-### Задача 2. Иерархия логгеров
+### **Задача 2**. 
 
-Создайте иерархию классов для системы логирования. Базовый класс `Logger` принимает `name` (строка) и хранит список сообщений `self.messages = []`. Метод `log(level, message)` добавляет в список словарь `{"level": level, "message": message}` и выводит строку `"[level] message"`. Создайте дочерний класс `FileLogger(Logger)`, который дополнительно принимает `filepath` (строка) и переопределяет `log()` — сначала вызывает `super().log()`, затем выводит `"[File → filepath] записано"`. Создайте `FilteredLogger(Logger)`, который принимает `min_level` (строка: `"DEBUG"`, `"INFO"`, `"WARNING"`, `"ERROR"`) и переопределяет `log()` — пропускает сообщения ниже минимального уровня (порядок уровней: `DEBUG < INFO < WARNING < ERROR`), для остальных вызывает `super().log()`.
+Иерархия логгеров
 
-Пример использования:
+Создайте иерархию классов для системы логирования. 
+
+Базовый класс `Logger` принимает `name` (строка) и хранит список сообщений `self.messages = []`. Метод `log(level, message)` добавляет в список словарь `{"level": level, "message": message}` и выводит строку `"[level] message"`. 
+
+Создайте дочерний класс `FileLogger(Logger)`, который дополнительно принимает `filepath` (строка) и переопределяет `log()` — сначала вызывает `super().log()`, затем выводит `"[File → filepath] записано"`. 
+
+Создайте `FilteredLogger(Logger)`, который принимает `min_level` (строка: `"DEBUG"`, `"INFO"`, `"WARNING"`, `"ERROR"`) и переопределяет `log()` — пропускает сообщения ниже минимального уровня (порядок уровней: `DEBUG < INFO < WARNING < ERROR`), для остальных вызывает `super().log()`.
+
+**Пример использования**:
 
 ```python
 base = Logger("app")
@@ -1031,67 +918,21 @@ filtered.log("WARNING", "Предупреждение")
 print(len(filtered.messages))   # 1 — только WARNING записано
 ```
 
-**Решение:**
-
-```python
-class Logger:
-    LEVELS = {"DEBUG": 0, "INFO": 1, "WARNING": 2, "ERROR": 3}
-
-    def __init__(self, name):
-        self.name = name
-        self.messages = []
-
-    def log(self, level, message):
-        self.messages.append({"level": level, "message": message})
-        print(f"[{level}] {message}")
-
-
-class FileLogger(Logger):
-    def __init__(self, name, filepath):
-        super().__init__(name)
-        self.filepath = filepath
-
-    def log(self, level, message):
-        super().log(level, message)
-        print(f"[File → {self.filepath}] записано")
-
-
-class FilteredLogger(Logger):
-    def __init__(self, name, min_level="DEBUG"):
-        super().__init__(name)
-        self.min_level = min_level
-
-    def log(self, level, message):
-        min_rank = self.LEVELS.get(self.min_level, 0)
-        msg_rank = self.LEVELS.get(level, 0)
-        if msg_rank < min_rank:
-            return   # пропускаем — не вызываем super()
-        super().log(level, message)
-
-
-base = Logger("app")
-base.log("INFO", "Приложение запущено")
-
-file_log = FileLogger("app", "app.log")
-file_log.log("ERROR", "Ошибка подключения")
-
-filtered = FilteredLogger("app", min_level="WARNING")
-filtered.log("DEBUG", "Отладочное сообщение")
-filtered.log("WARNING", "Предупреждение")
-print(len(filtered.messages))   # 1
-```
-
 ---
 
-### Задача 3. Иерархия форм
+### **Задача 3**. 
 
-Создайте иерархию классов для обработки HTML-форм. Базовый класс `Form` принимает `data` (словарь) и хранит `self._errors = {}`. Метод `validate()` возвращает `True` если `_errors` пуст, и `False` иначе. Метод `clean()` возвращает словарь с очищенными данными (по умолчанию — копия `data`). Метод `save()` вызывает `clean()` и выводит сообщение о сохранении.
+Иерархия форм
+
+Создайте иерархию классов для обработки HTML-форм. 
+
+Базовый класс `Form` принимает `data` (словарь) и хранит `self._errors = {}`. Метод `validate()` возвращает `True` если `_errors` пуст, и `False` иначе. Метод `clean()` возвращает словарь с очищенными данными (по умолчанию — копия `data`). Метод `save()` вызывает `clean()` и выводит сообщение о сохранении.
 
 Создайте `RegistrationForm(Form)`, который добавляет проверки в `validate()` через `super().validate()`: обязательные поля `username`, `email`, `password`; email должен содержать `@`; пароль не короче 8 символов. Метод `clean()` вызывает `super().clean()` и удаляет поле `password` из результата (не возвращаем пароль).
 
 Создайте `AdminRegistrationForm(RegistrationForm)`, который дополнительно проверяет наличие поля `admin_code` и его равенство строке `"SECRET2024"`. Метод `clean()` вызывает `super().clean()` и добавляет поле `role = "admin"`.
 
-Пример использования:
+**Пример использования**:
 
 ```python
 data = {"username": "alice", "email": "alice@example.com", "password": "secure123"}
@@ -1107,96 +948,21 @@ if admin_form.validate():
 # {'username': 'alice', 'email': 'alice@example.com', 'role': 'admin'}
 ```
 
-**Решение:**
-
-```python
-class Form:
-    def __init__(self, data):
-        self._data = data
-        self._errors = {}
-
-    def validate(self):
-        return len(self._errors) == 0
-
-    def clean(self):
-        return dict(self._data)
-
-    def save(self):
-        cleaned = self.clean()
-        print(f"Сохраняем: {cleaned}")
-        return cleaned
-
-    @property
-    def errors(self):
-        return self._errors
-
-
-class RegistrationForm(Form):
-    REQUIRED = {"username", "email", "password"}
-
-    def validate(self):
-        for field in self.REQUIRED:
-            if not self._data.get(field):
-                self._errors[field] = "Обязательное поле"
-
-        email = self._data.get("email", "")
-        if email and "@" not in email:
-            self._errors["email"] = "Некорректный email"
-
-        password = self._data.get("password", "")
-        if password and len(password) < 8:
-            self._errors["password"] = "Пароль не короче 8 символов"
-
-        return super().validate()
-
-    def clean(self):
-        data = super().clean()
-        data.pop("password", None)
-        return data
-
-
-class AdminRegistrationForm(RegistrationForm):
-    ADMIN_CODE = "SECRET2024"
-
-    def validate(self):
-        result = super().validate()
-        # Проверяем admin_code независимо от результата родителя
-        code = self._data.get("admin_code")
-        if code != self.ADMIN_CODE:
-            self._errors["admin_code"] = "Неверный код администратора"
-        return len(self._errors) == 0
-
-    def clean(self):
-        data = super().clean()
-        data.pop("admin_code", None)
-        data["role"] = "admin"
-        return data
-
-
-data = {"username": "alice", "email": "alice@example.com", "password": "secure123"}
-form = RegistrationForm(data)
-if form.validate():
-    print(form.clean())
-
-admin_data = {**data, "admin_code": "SECRET2024"}
-admin_form = AdminRegistrationForm(admin_data)
-if admin_form.validate():
-    print(admin_form.clean())
-else:
-    print("Ошибки:", admin_form.errors)
-```
-
 ---
 
-### Задача 4. Иерархия репозиториев
+### **Задача 4**. 
 
-Создайте иерархию классов для работы с данными в стиле паттерна Repository. Базовый класс `BaseRepository` хранит данные в словаре `self._store = {}` (ключ — id). Методы: `save(entity)` (принимает словарь с полем `id`, сохраняет в `_store`, выводит `"Сохранено: id"`), `find(id)` (возвращает объект или `None`), `delete(id)` (удаляет, выводит `"Удалено: id"`), `all()` (возвращает список всех объектов).
+Иерархия репозиториев
+
+Создайте иерархию классов для работы с данными в стиле паттерна Repository.
+
+Базовый класс `BaseRepository` хранит данные в словаре `self._store = {}` (ключ — id). Методы: `save(entity)` (принимает словарь с полем `id`, сохраняет в `_store`, выводит `"Сохранено: id"`), `find(id)` (возвращает объект или `None`), `delete(id)` (удаляет, выводит `"Удалено: id"`), `all()` (возвращает список всех объектов).
 
 Создайте `LoggedRepository(BaseRepository)`, который переопределяет `save()`, `find()` и `delete()` через `super()`, добавляя логирование вида `"[LOG] save id=..."`, `"[LOG] find id=..."`, `"[LOG] delete id=..."` до вызова родительского метода.
 
-Создайте `CachedRepository(LoggedRepository)`, который добавляет `self._cache = {}` и переопределяет `find()`: сначала ищет в кеше, если не найдено — вызывает `super().find()` и сохраняет результат в кеше. Переопределяет `save()` и `delete()` так, чтобы инвалидировать кеш при изменении данных.
+Создайте `CachedRepository(LoggedRepository)`, который добавляет `self._cache = {}` и переопределяет `find()`: сначала ищет в кеше, если не найдено — вызывает `super().find()` и сохраняет результат в кеше. Переопределяет `save()` и `delete()` так, чтобы инвалидировать кеш (удалить или обновить устаревшие данные в кэше) при изменении данных.
 
-Пример использования:
+**Пример использования**:
 
 ```python
 repo = CachedRepository()
@@ -1219,80 +985,11 @@ repo.delete(1)
 # Удалено: 1
 ```
 
-**Решение:**
-
-```python
-class BaseRepository:
-    def __init__(self):
-        self._store = {}
-
-    def save(self, entity):
-        self._store[entity["id"]] = entity
-        print(f"Сохранено: {entity['id']}")
-
-    def find(self, id):
-        return self._store.get(id)
-
-    def delete(self, id):
-        if id in self._store:
-            del self._store[id]
-            print(f"Удалено: {id}")
-
-    def all(self):
-        return list(self._store.values())
-
-
-class LoggedRepository(BaseRepository):
-    def save(self, entity):
-        print(f"[LOG] save id={entity['id']}")
-        super().save(entity)
-
-    def find(self, id):
-        print(f"[LOG] find id={id}")
-        return super().find(id)
-
-    def delete(self, id):
-        print(f"[LOG] delete id={id}")
-        super().delete(id)
-
-
-class CachedRepository(LoggedRepository):
-    def __init__(self):
-        super().__init__()
-        self._cache = {}
-
-    def save(self, entity):
-        # Инвалидируем кеш при сохранении
-        self._cache.pop(entity["id"], None)
-        super().save(entity)
-
-    def find(self, id):
-        if id in self._cache:
-            # Возвращаем из кеша — без логирования
-            return self._cache[id]
-        # Не в кеше — идём в хранилище через super() (с логированием)
-        result = super().find(id)
-        if result is not None:
-            self._cache[id] = result
-        return result
-
-    def delete(self, id):
-        self._cache.pop(id, None)
-        super().delete(id)
-
-
-repo = CachedRepository()
-repo.save({"id": 1, "name": "Alice"})
-result = repo.find(1)
-print(result)
-result2 = repo.find(1)   # из кеша — без лога
-print(result2)
-repo.delete(1)
-```
-
 ---
 
-### Задача 5. Иерархия обработчиков платежей
+### **Задача 5**. 
+
+Иерархия обработчиков платежей
 
 Создайте иерархию классов для обработки платежей. Базовый класс `PaymentProcessor` принимает `amount` (число) и `currency` (строка). Метод `process()` выводит `"Обработка платежа: amount currency"` и возвращает словарь `{"success": True, "amount": amount, "currency": currency}`. Метод `validate()` возвращает `True`, если `amount > 0`.
 
@@ -1315,60 +1012,11 @@ if proc.validate():
 # {'success': True, 'amount': 1000, 'currency': 'RUB', 'fee': 25.0, 'total': 1025.0}
 ```
 
-**Решение:**
-
-```python
-class PaymentProcessor:
-    def __init__(self, amount, currency):
-        self.amount = amount
-        self.currency = currency
-
-    def validate(self):
-        return self.amount > 0
-
-    def process(self):
-        print(f"Обработка платежа: {self.amount} {self.currency}")
-        return {
-            "success": True,
-            "amount": self.amount,
-            "currency": self.currency,
-        }
-
-
-class FeePaymentProcessor(PaymentProcessor):
-    def __init__(self, amount, currency, fee_percent):
-        super().__init__(amount, currency)
-        self.fee_percent = fee_percent
-
-    def validate(self):
-        return super().validate() and 0 <= self.fee_percent <= 100
-
-    def process(self):
-        result = super().process()
-        fee = round(self.amount * self.fee_percent / 100, 2)
-        result["fee"] = fee
-        result["total"] = round(self.amount + fee, 2)
-        return result
-
-
-class LoggedPaymentProcessor(FeePaymentProcessor):
-    def process(self):
-        print("[LOG] Начало транзакции")
-        result = super().process()
-        print(f"[LOG] Транзакция завершена: {result['success']}")
-        return result
-
-
-proc = LoggedPaymentProcessor(amount=1000, currency="RUB", fee_percent=2.5)
-
-if proc.validate():
-    result = proc.process()
-    print(result)
-```
-
 ---
 
-### Задача 6. Иерархия экспортёров данных
+### **Задача 6**. 
+
+Иерархия экспортёров данных
 
 Создайте иерархию классов для экспорта данных в разные форматы. Базовый класс `DataExporter` принимает `data` (список словарей) и `filename` (строка). Метод `export()` вызывает `prepare()`, затем `write()` и выводит `"Экспортировано в filename"`. Метод `prepare()` возвращает данные без изменений. Метод `write(prepared_data)` выводит `"Запись N записей"`.
 
@@ -1378,7 +1026,7 @@ if proc.validate():
 
 Создайте `CSVExporter(TransformedExporter)`, который переопределяет `write()`, добавляя к выводу `"[CSV]"` и имитацию записи заголовка.
 
-Пример использования:
+**Пример использования**:
 
 ```python
 users = [
@@ -1401,66 +1049,6 @@ exporter.export()
 # Экспортировано в active_adults.csv
 ```
 
-**Решение:**
+---
 
-```python
-class DataExporter:
-    def __init__(self, data, filename):
-        self.data = data
-        self.filename = filename
-
-    def prepare(self):
-        return list(self.data)
-
-    def write(self, prepared_data):
-        print(f"Запись {len(prepared_data)} записей")
-
-    def export(self):
-        prepared = self.prepare()
-        self.write(prepared)
-        print(f"Экспортировано в {self.filename}")
-
-
-class FilteredExporter(DataExporter):
-    def __init__(self, data, filename, filter_fn=None):
-        super().__init__(data, filename)
-        self.filter_fn = filter_fn or (lambda x: True)
-
-    def prepare(self):
-        data = super().prepare()
-        return [item for item in data if self.filter_fn(item)]
-
-
-class TransformedExporter(FilteredExporter):
-    def __init__(self, data, filename, filter_fn=None, transform_fn=None):
-        super().__init__(data, filename, filter_fn)
-        self.transform_fn = transform_fn or (lambda x: x)
-
-    def prepare(self):
-        data = super().prepare()   # уже отфильтрованные данные
-        return [self.transform_fn(item) for item in data]
-
-
-class CSVExporter(TransformedExporter):
-    def write(self, prepared_data):
-        if prepared_data:
-            headers = ", ".join(prepared_data[0].keys())
-            print(f"[CSV] Заголовки: {headers}")
-        super().write(prepared_data)
-
-
-users = [
-    {"id": 1, "name": "Alice", "age": 30, "active": True},
-    {"id": 2, "name": "Bob",   "age": 17, "active": True},
-    {"id": 3, "name": "Carol", "age": 25, "active": False},
-    {"id": 4, "name": "Dave",  "age": 22, "active": True},
-]
-
-exporter = CSVExporter(
-    data=users,
-    filename="active_adults.csv",
-    filter_fn=lambda u: u["active"] and u["age"] >= 18,
-    transform_fn=lambda u: {"name": u["name"], "age": u["age"]}
-)
-
-exporter.export()
+[Предыдущий урок](lesson19.md) | [Следующий урок](lesson21.md)
