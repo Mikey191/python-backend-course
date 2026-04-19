@@ -35,6 +35,7 @@
 - [Урок 20. Функция `super()` и делегирование методов родителя](lesson20.md)
 - [Урок 21. Атрибуты `private` и `protected` при наследовании](lesson21.md)
 - [Урок 22. Полиморфизм: duck typing, `isinstance()`, `issubclass()`](lesson22.md)
+- [Урок 23. Абстрактные классы: модуль `abc`, `ABC`, `@abstractmethod`](lesson23.md)
 
 ---
 
