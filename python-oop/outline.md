@@ -36,6 +36,7 @@
 - [Урок 21. Атрибуты `private` и `protected` при наследовании](lesson21.md)
 - [Урок 22. Полиморфизм: duck typing, `isinstance()`, `issubclass()`](lesson22.md)
 - [Урок 23. Абстрактные классы: модуль `abc`, `ABC`, `@abstractmethod`](lesson23.md)
+- [Урок 24. Собственные исключения: наследование от `Exception`](lesson24.md)
 
 ---
 
