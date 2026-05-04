@@ -50,6 +50,7 @@
 
 - [Урок 30. Введение в Data Classes: `@dataclass` и автогенерация методов](lesson30.md)
 - [Урок 31. Углубляемся в Data Classes: `field()`, `__post_init__`, `ClassVar`](lesson31.md)
+- [Урок 32. Наследование Data Classes и совместимость с обычными классами](lesson32.md)
 
 ---
 
