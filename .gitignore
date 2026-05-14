@@ -1,6 +1,7 @@
 /stocks
 # /python-django/moduls
 # /python-oop/moduls/
+.DS_Store
 *_tmp/
 *_tmp.md
 **/moduls/
