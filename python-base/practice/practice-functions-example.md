@@ -183,6 +183,9 @@ RAW_DATA = """
 
 ## 8. Полное решение
 
+<details>
+<summary>Решение</summary>
+
 ```python
 RAW_DATA = """
 Телефон;ИванИванов;Нальчик,Ленина,1,11;2;20000
@@ -318,6 +321,8 @@ def main():
 main()
 ```
 
+</details>
+
 ---
 
 # Меню через словарь
@@ -362,6 +367,9 @@ menu['1']()
 
 ### Полный код
 
+<details>
+<summary>Решение</summary>
+
 ```python
 RAW_DATA = """
 Телефон;ИванИванов;Нальчик,Ленина,1,11;2;20000
@@ -377,7 +385,7 @@ RAW_DATA = """
 """
 
 
-# ---------- Бизнес-логика ----------
+#---------- Бизнес-логика ----------
 
 def parse_orders(data):
     orders = []
@@ -438,7 +446,7 @@ def product_sales_info(orders, product):
     return qty, total
 
 
-# ---------- Функции-обертки для меню ----------
+#---------- Функции-обертки для меню ----------
 
 def menu_show_orders(orders):
     print_orders(orders)
@@ -479,7 +487,7 @@ def menu_exit(_):
     return False
 
 
-# ---------- main с меню через словарь ----------
+#--------- main с меню через словарь ----------
 
 def main():
     orders = parse_orders(RAW_DATA)
@@ -512,5 +520,7 @@ def main():
 
 main()
 ```
+
+</details>
 
 ---
