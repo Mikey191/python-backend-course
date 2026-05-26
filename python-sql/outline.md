@@ -25,6 +25,7 @@
 
 - [Урок 15. HTTP и REST](lesson15.md)
 - [Урок 16. Введение в FastAPI](lesson16.md)
+- [Урок 17. Pydantic-схемы](lesson17.md)
 
 ---
 
