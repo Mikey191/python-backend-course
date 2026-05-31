@@ -27,6 +27,8 @@
 - [Урок 16. Введение в FastAPI](lesson16.md)
 - [Урок 17. Pydantic-схемы](lesson17.md)
 - [Урок 18. Подключение SQLite к FastAPI](lesson18.md)
+- [Урок 19. Обработка ошибок и структура проекта](lesson19.md)
+- [Урок 20. Мини-проект 1 — To-Do API](lesson20.md)
 
 ---
 
