@@ -35,6 +35,7 @@
 
 - [Урок 22. Что такое ORM и зачем он нужен](lesson22.md)
 - [Урок 23. SQLAlchemy Core](lesson23.md)
+- [Урок 24. SQLAlchemy ORM](lesson24.md)
 
 ---
 
