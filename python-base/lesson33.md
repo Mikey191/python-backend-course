@@ -1222,6 +1222,9 @@ Sometimes people compare python with other languages.
 
 ## Реализация
 
+<details>
+<summary>Решение</summary>
+
 ### Шаг 1. Чтение файла
 
 ```python
@@ -1272,6 +1275,8 @@ def main():
     print(f'Общее количество слов в найденных строках: {words}')
     print(f'Есть ли совпадения: {found}')
 ```
+
+</details>
 
 ---
 
@@ -1826,6 +1831,9 @@ full_name;group;math;python;databases
 
 ## Реализация
 
+<details>
+<summary>Решение</summary>
+
 ### Шаг 1. Чтение CSV-файла
 
 ```python
@@ -1984,6 +1992,8 @@ def main():
     else:
         print("Все студенты имеют хотя бы одну тройку")
 ```
+
+</details>
 
 ---
 
@@ -2587,6 +2597,9 @@ Python объект
 
 ## Реализация
 
+<details>
+<summary>Решение</summary>
+
 ### Шаг 1. Загрузка каталога книг из JSON
 
 ```python
@@ -2669,6 +2682,8 @@ def main():
 
     save_books(filename, books)
 ```
+
+</details>
 
 ---
 
