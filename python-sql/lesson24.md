@@ -1210,7 +1210,7 @@ with Session(engine) as session:
 
 ---
 
-## Вопросы для закрепления
+## Вопросы
 
 1. Что такое `DeclarativeBase` и зачем от него наследоваться?
 2. Чем Session отличается от Connection в SQLAlchemy Core?
