@@ -8,3 +8,4 @@
 4. [python-django](python-django/outline.md)
 5. [python-fastapi](python-fastapi/outline.md)
 6. [html-css-base](html-css-base/outline.md)
+7. [git-github-solo](git-github-solo/outline.md)
