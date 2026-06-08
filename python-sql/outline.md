@@ -37,6 +37,7 @@
 - [Урок 23. SQLAlchemy Core](lesson23.md)
 - [Урок 24. SQLAlchemy ORM](lesson24.md)
 - [Урок 25. Миграции — Alembic](lesson25.md)
+- [Урок 26. Финальный проект — Проектирование](lesson26.md)
 
 ---
 
