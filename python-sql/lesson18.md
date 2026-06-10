@@ -257,6 +257,12 @@ shop_api/
     └── orders.py
 ```
 
+---
+
+Файл [repositiries.py](lesson14.md#структура-файлов-проекта) из второго модуля.
+
+---
+
 ```python
 # database.py
 import sqlite3
@@ -291,6 +297,8 @@ def get_order_repo(
 ) -> OrderRepository:
     return OrderRepository(connection)
 ```
+
+---
 
 ```python
 # schemas.py
@@ -335,6 +343,8 @@ class OrderResponse(BaseModel):
     status: str
     created_at: str
 ```
+
+---
 
 ```python
 # routers/products.py
@@ -387,6 +397,8 @@ def delete_product(
         raise HTTPException(status_code=404, detail='Товар не найден')
 ```
 
+---
+
 ```python
 # routers/users.py
 from fastapi import APIRouter, Depends, HTTPException
@@ -424,6 +436,8 @@ def delete_user(user_id: int, repo: UserRepository = Depends(get_user_repo)):
     if not repo.delete(user_id):
         raise HTTPException(status_code=404, detail='Пользователь не найден')
 ```
+
+---
 
 ```python
 # main.py
