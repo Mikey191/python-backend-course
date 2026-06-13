@@ -1,0 +1,488 @@
+# Модуль 7. Урок 41. Отображение полей формы. Сохранение переданных данных в БД
+
+В предыдущем уроке мы познакомились с формами, не связанными с моделями. Мы научились создавать собственные формы, выводить их в шаблон и обрабатывать данные. Теперь наша цель — научиться более тонко управлять внешним видом формы, понимать, как Django отображает поля, и что происходит внутри формы, прежде чем данные попадут в базу данных.
+
+Этот шаг особенно важен. От того, насколько аккуратно и понятно вы выводите форму пользователю, зависит удобство работы с вашим сайтом. А от того, насколько правильно вы обрабатываете отправленные данные — зависит корректность работы вашего приложения.
+
+Мы будем продолжать работать в проекте **cinemahub**, а примеры будут связаны с кино: жанрами, фильмами и состоянием публикации.
+
+---
+
+## 1. Почему важно управлять отображением формы
+
+Django умеет отображать форму полностью автоматически:
+
+```html
+{{ form.as_p }}
+```
+
+Но как только форма становится сложнее — например, появляются дополнительные поля, кастомные сообщения или стилизованные элементы — автоматического варианта оказывается недостаточно.
+
+Вы должны уметь:
+
+- менять `label` (название поля в форме)
+- управлять HTML-атрибутами полей (классы, размеры, placeholder и т.д.)
+- выводить ошибки там, где вам нужно
+- выводить каждый элемент формы вручную
+- делать форму удобной для пользователя
+
+Именно этим мы сейчас займёмся.
+
+---
+
+## 2. Создаём форму с красиво оформленными полями
+
+Предположим, мы хотим добавить форму для создания объекта `Movie` (название, slug, описание, признак опубликованности и жанр). При этом форма **не связана с моделью**, и мы пока работаем только с данными.
+
+Создайте файл:
+
+### 📄 `cinemahub/forms.py`
+
+```python
+from django import forms
+from .models import Genre
+
+class AddMovieForm(forms.Form):
+    title = forms.CharField(
+        max_length=255,
+        label="Название фильма",
+        widget=forms.TextInput(attrs={'class': 'form-input'})
+    )
+    slug = forms.SlugField(
+        max_length=255,
+        label="URL-идентификатор"
+    )
+    description = forms.CharField(
+        widget=forms.Textarea(attrs={'cols': 50, 'rows': 5}),
+        required=False,
+        label="Описание"
+    )
+    is_published = forms.BooleanField(
+        required=False,
+        initial=True,
+        label="Опубликовано"
+    )
+    genre = forms.ModelChoiceField(
+        queryset=Genre.objects.all(),
+        empty_label="Жанр не выбран",
+        label="Жанр фильма"
+    )
+```
+
+### Что мы сделали?
+
+Все поля теперь:
+
+- имеют понятные русскоязычные подписи
+- используют удобные HTML-виджеты
+- содержат настройки отображения (классы, размеры)
+
+## Самые распространённые поля и ключевые аргументы
+
+### **`CharField` — текстовое поле (однострочное)**
+
+```py
+title = forms.CharField(
+    max_length=255,
+    min_length=2,
+    required=True,
+    label="Название",
+    initial="Matrix",
+    help_text="Укажите название фильма",
+    error_messages={'required': 'Введите название'},
+    widget=forms.TextInput(attrs={'class':'form-input','placeholder':'Название'})
+)
+```
+
+- `max_length`, `min_length` — валидация по длине.
+- `widget` — задаёт HTML-виджет (обычно `TextInput`).
+
+### **`IntegerField` / `FloatField` / `DecimalField` — числа**
+
+```py
+year = forms.IntegerField(min_value=1900, max_value=2100, initial=1999)
+rating = forms.DecimalField(max_digits=3, decimal_places=1, required=False)
+```
+
+- `min_value` / `max_value` — числовые ограничения.
+- На уровне HTML можно использовать `NumberInput` через `widget`.
+
+### **`BooleanField` — чекбокс (True/False)**
+
+```py
+is_published = forms.BooleanField(required=False, initial=True, label="Опубликовано")
+```
+
+- Если `required=True`, чекбокс обязан быть отмечен; чаще ставят `required=False`.
+
+### **`ChoiceField` / `TypedChoiceField` — выбор из списка (одно значение)**
+
+```py
+CHOICES = [('A','A'),('B','B')]
+choice = forms.ChoiceField(choices=CHOICES, widget=forms.Select, required=True)
+```
+
+- `choices` — список кортежей `(value, label)`.
+- Для приведения типов есть `TypedChoiceField`.
+
+---
+
+### **`MultipleChoiceField` / `TypedMultipleChoiceField` — множественный выбор**
+
+```py
+tags = forms.MultipleChoiceField(choices=TAG_CHOICES, widget=forms.CheckboxSelectMultiple)
+```
+
+- Возвращает список выбранных значений. Для отображения можно использовать `CheckboxSelectMultiple` или `SelectMultiple`.
+
+---
+
+### **`FileField` / `ImageField` — загрузка файлов / изображений**
+
+```py
+file = forms.FileField()
+image = forms.ImageField(required=False)
+```
+
+- При валидации `image` использует Pillow; `file` — общий файл. После валидации в `cleaned_data` лежит объект `UploadedFile`. ([sibyx.github.io][3])
+
+---
+
+### **`DateField` / `DateTimeField` / `TimeField` — даты и время**
+
+```py
+release_date = forms.DateField(widget=forms.DateInput(attrs={'type': 'date'}))
+```
+
+- Обычно используют HTML5 widgets (`type="date"`).
+
+---
+
+### **`SlugField` — для slug (латинские буквы, цифры, дефис и т. п.)**
+
+```py
+slug = forms.SlugField(max_length=255)
+```
+
+- Содержит встроенную простую валидацию формата.
+
+---
+
+### **`ModelChoiceField` / `ModelMultipleChoiceField` — поля для связей с моделями**
+
+```py
+genre = forms.ModelChoiceField(queryset=Genre.objects.all(), empty_label="Жанр не выбран")
+actors = forms.ModelMultipleChoiceField(queryset=Actor.objects.all(), widget=forms.CheckboxSelectMultiple)
+```
+
+- `ModelChoiceField` возвращает **экземпляр модели** в `cleaned_data` (для ForeignKey/OneToOne аналог).
+- `ModelMultipleChoiceField` возвращает queryset (список объектов) — для ManyToMany.
+- Можно контролировать `label_from_instance()` для кастомного отображения вариантов. Документация по созданию форм из моделей полезна.
+
+---
+
+## **Короткая «шпаргалка»**
+
+```py
+# текст
+name = forms.CharField(max_length=100, required=True, label="Имя", widget=forms.TextInput(attrs={'class':'input'}))
+
+# число
+year = forms.IntegerField(min_value=1900, max_value=2100, initial=2020)
+
+# да/нет
+is_pub = forms.BooleanField(required=False, initial=True)
+
+# выбор из списка
+genre = forms.ModelChoiceField(queryset=Genre.objects.all(), empty_label="Не выбран", label="Жанр")
+
+# множественный выбор (M2M)
+tags = forms.ModelMultipleChoiceField(queryset=Tag.objects.all(), widget=forms.CheckboxSelectMultiple)
+
+# файл / изображение
+poster = forms.ImageField(required=False)
+
+# кастомный валидатор
+from django.core.exceptions import ValidationError
+def no_digits(value):
+    if any(ch.isdigit() for ch in value):
+        raise ValidationError("Цифры запрещены")
+title = forms.CharField(validators=[no_digits])
+```
+
+---
+
+## 3. Отображаем форму вручную в шаблоне
+
+Создадим шаблон, в котором мы будем аккуратно выводить каждое поле:
+
+### 📄 `templates/cinemahub/add_movie.html`
+
+```html
+<h1>Добавление фильма</h1>
+
+<form action="" method="post">
+  {% csrf_token %}
+
+  <!-- Ошибки, не привязанные к конкретным полям -->
+  <div class="form-error">{{ form.non_field_errors }}</div>
+
+  <!-- Вывод полей -->
+  {% for f in form %}
+  <p>
+    <label for="{{ f.id_for_label }}">{{ f.label }}:</label><br />
+    {{ f }}
+  </p>
+  <div class="form-error">{{ f.errors }}</div>
+  {% endfor %}
+
+  <button type="submit">Сохранить</button>
+</form>
+```
+
+Таким образом:
+
+- Метод `form.non_field_errors()` возвращает список ошибок, не привязанных к конкретным полям.
+- `f` — это объект типа `BoundField`, обёртка над полем формы.
+- `f.id_for_label` — даёт HTML-id этого поля, пригодный для атрибута `for` в теге `<label>`, так что при клике на текст метки фокус будет установлен на связанное поле. Это автоматическая удобная связь label ↔ input.
+- `f.label` — отображаемая «человекочитаемая» метка поля (взята из `field.label` или автоматически сгенерирована).
+- `f.errors` — ошибки валидации, относящиеся к конкретному полю. Если поле не прошло проверку, `f.errors` будет содержать список сообщений об ошибках (обычно список или объект ошибок), и их можно отобразить рядом с полем.
+
+Эта модель (Form → BoundField → шаблон) даёт гибкий контроль над HTML-разметкой формы: ты можешь оборачивать поля в нужные теги, добавлять классы, div-контейнеры, а не полагаться на автоматический `{{ form.as_p }}`.
+
+---
+
+## 4. Подключаем форму к представлению
+
+Создадим обработчик, который:
+
+1. выводит пустую форму при GET-запросе
+2. валидирует форму при POST
+3. сохраняет данные в БД
+
+### 📄 `cinemahub/views.py`
+
+```python
+from django.shortcuts import render, redirect
+from .forms import AddMovieForm
+from .models import Movie
+
+def add_movie(request):
+    if request.method == "POST":
+        form = AddMovieForm(request.POST)
+
+        if form.is_valid():
+            try:
+                Movie.objects.create(**form.cleaned_data)
+                return redirect("home")
+            except:
+                form.add_error(None, "Ошибка сохранения фильма")
+    else:
+        form = AddMovieForm()
+
+    return render(request, "cinemahub/add_movie.html", {"form": form})
+```
+
+Таким образом:
+
+- `form.cleaned_data` - Доступ к очищенным данным. После того, как ты вызвал `form.is_valid()` и проверка прошла — Django соберёт и преобразует данные формы (приведёт к нужным типам, применит валидацию) и сохранит их в словаре `form.cleaned_data`. Обычно из `cleaned_data` берут данные, чтобы создать объект модели (или что-то ещё). Если форма не валидна — `cleaned_data` может быть неполным (только поля, прошедшие проверку), или отсутствовать.
+
+- `form.add_error()` - Добавление ошибки вручную. Первым аргументом передаётся имя поля, или `None`, если ошибка общая. При этом Django автоматически удаляет соответствующее поле из `cleaned_data`, чтобы не сохранить некорректные данные. После этого, проверка `form.is_valid()` вернёт `False`, и `form.non_field_errors()` вернёт список с вашим сообщением.
+
+---
+
+## 5. Возможные ошибки и как их исправлять
+
+### 🔥 Ошибка: «Movie() got an unexpected keyword 'genre'»
+
+Причина: в модели `Movie` поле может называться не `genre`, а, например, `genre_id` или `genres`.
+
+Исправление:
+
+- следите за совпадением имён полей формы и модели
+- при необходимости преобразуйте данные вручную, например:
+
+```python
+movie = Movie(
+    title=form.cleaned_data['title'],
+    slug=form.cleaned_data['slug'],
+    description=form.cleaned_data['description'],
+    is_published=form.cleaned_data['is_published'],
+    genre=form.cleaned_data['genre'],
+)
+movie.save()
+```
+
+---
+
+### 🔥 Ошибка: форма всегда невалидна
+
+Проверьте:
+
+- отправляется ли CSRF токен
+- совпадают ли названия полей в форме и шаблоне
+- вводите ли вы корректный slug (только латиница, числа, '-')
+
+Если slug введён кириллицей, Django автоматически покажет ошибку — и это нормально.
+
+---
+
+### 🔥 Ошибка: пустой список жанров в форме
+
+Причина: в БД нет жанров.
+
+Решение:
+
+- добавьте несколько жанров в админ-панели
+- или через Django shell
+- или создайте миграцию фейковых жанров
+
+---
+
+## 6. Проверяем результат в браузере
+
+После создания всех файлов:
+
+1. запустите сервер
+2. перейдите по адресу
+
+   ```
+   /add_movie/
+   ```
+
+3. проверьте:
+
+- отображается ли форма?
+- выводятся ли подписи к полям?
+- отображаются ли ошибки под полями?
+- сохраняются ли данные в базу?
+- происходит ли переадресация после успешного добавления?
+
+Если всё работает — вы сделали важный шаг к созданию пользовательского интерфейса для ввода данных.
+
+---
+
+## Практические задания
+
+1. Создайте форму **AddGenreForm**, которая:
+
+- принимает название жанра
+- принимает slug
+- выводится вручную
+- после отправки сохраняет новый объект Genre
+
+_шаблон создайте новый_
+
+---
+
+2. Создайте форму обратной связи:
+
+- email
+- тема сообщения
+- текст сообщения
+
+_Пока данные просто выводите в консоль_
+
+---
+
+3. Добавьте в форму `AddMovieForm` новое поле:
+
+- `rating` (целое число от 1 до 10)
+
+_Добавьте вывод ошибок в шаблоне, если студент введёт число больше 10_
+
+---
+
+## Сравнить решение
+
+1. Создайте форму **AddGenreForm**
+
+**forms.py**
+
+```python
+class AddGenreForm(forms.Form):
+    name = forms.CharField(max_length=255, label="Название жанра")
+    slug = forms.SlugField(max_length=255, label="URL-идентификатор")
+```
+
+**views.py**
+
+```python
+def add_genre(request):
+    if request.method == "POST":
+        form = AddGenreForm(request.POST)
+        if form.is_valid():
+            Genre.objects.create(**form.cleaned_data)
+            return redirect("home")
+    else:
+        form = AddGenreForm()
+
+    return render(request, "cinemahub/add_genre.html", {"form": form})
+```
+
+---
+
+2. Создайте форму обратной связи
+
+**forms.py**
+
+```python
+class FeedbackForm(forms.Form):
+    email = forms.EmailField(label="Ваш Email")
+    subject = forms.CharField(max_length=200, label="Тема сообщения")
+    message = forms.CharField(widget=forms.Textarea(), label="Сообщение")
+```
+
+**views.py**
+
+```python
+def feedback(request):
+    if request.method == "POST":
+        form = FeedbackForm(request.POST)
+        if form.is_valid():
+            print(form.cleaned_data)
+            return redirect("home")
+    else:
+        form = FeedbackForm()
+
+    return render(request, "cinemahub/feedback.html", {"form": form})
+```
+
+---
+
+3. Добавьте в форму `AddMovieForm` поле rating
+
+**forms.py**
+
+```python
+rating = forms.IntegerField(
+    min_value=1,
+    max_value=10,
+    label="Рейтинг"
+)
+```
+
+---
+
+# Вопросы
+
+1. Что делает параметр `label` в поле формы?
+2. Для чего нужен `empty_label` в `ModelChoiceField`?
+3. Что такое `form.non_field_errors`?
+4. Где лучше задавать классы и HTML-атрибуты формы — в шаблоне или во `widget`?
+5. Что происходит при вызове `form.is_valid()`?
+6. Что хранится в `form.cleaned_data`?
+7. Почему `{{ form.as_p }}` удобен только для простых форм?
+8. Что произойдёт, если модель и форма используют разные названия полей?
+9. Каким образом можно вывести ошибки формы вручную?
+10. Как правильно обрабатывать ошибку сохранения объекта в БД?
+
+---
+
+[Предыдущий урок](lesson40.md) | [Следующий урок](lesson42.md)
+
+---
+
+# Docs:
+
+[Forms](https://docs.djangoproject.com/en/6.0/ref/forms)
