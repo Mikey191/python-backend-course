@@ -1,4 +1,4 @@
-# Урок 20. Мини-проект 1 — To-Do API
+# Урок 20. Мини-проект — To-Do API
 
 ## Что мы строим
 
@@ -371,7 +371,7 @@ class TaskRepository:
         category_id: int,
         created_at: str
     ) -> int:
-        """ca
+        """
         Создаёт задачу.
         Статус 'new' — значение по умолчанию из схемы БД.
         Возвращает id созданной строки.
@@ -531,7 +531,7 @@ router = APIRouter()
 @router.get(
     '/',
     response_model=List[CategoryResponse],
-    s='Список всех категорий'
+    summary='Список всех категорий'
 )
 def get_categories(repo: CategoryRepository = Depends(get_category_repo)):
     """
