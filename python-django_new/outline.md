@@ -11,6 +11,7 @@
 - [Урок 4. Введение в DTL. render() и передача данных в шаблон](lesson04.md)
 - [Урок 5. Фильтры, теги if/for и тег url](lesson05.md)
 - [Урок 6. Наследование шаблонов (extends) и тег include](lesson06.md)
+- [Урок 7. Статические файлы. Пользовательские теги (simple_tag, inclusion_tag)](lesson07.md)
 
 ---
 
