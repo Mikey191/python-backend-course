@@ -513,7 +513,7 @@ Film.objects.filter(genres__name__in=['Драма', 'Криминал']).distinc
 
 ---
 
-## Вопросы для проверки
+## Вопросы
 
 1. Чем ForeignKey отличается от OneToOneField на уровне базы данных?
 2. Нужно ли вручную создавать промежуточную таблицу для ManyToManyField?
