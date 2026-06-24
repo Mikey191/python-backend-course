@@ -17,6 +17,7 @@
 
 - [Урок 8. Модели Django. Миграции](lesson08.md)
 - [Урок 9. CRUD через Django ORM. Field Lookups. Пользовательский менеджер модели](lesson09.md)
+- [Урок 10. Связи между моделями: ForeignKey, ManyToMany, OneToOne — теория + ORM-команды для всех типов](lesson10.md)
 
 ---
 

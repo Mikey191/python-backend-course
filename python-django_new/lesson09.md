@@ -542,3 +542,7 @@ def search_film(request):
 > Строка запроса: `http://127.0.0.1:8000/films/search/?q=Список Шиндлера`
 
 </details>
+
+---
+
+[Предыдущий урок](lesson08.md) | [Следующий урок](lesson10.md)
