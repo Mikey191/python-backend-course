@@ -1,272 +1,537 @@
-# Модуль 2. Урок 10. Теги шаблонов в Django: if и for. Тег url
+# Урок 10. Связи между моделями: ForeignKey, ManyToMany, OneToOne — теория + ORM-команды для всех типов
 
-Когда мы начали работать с шаблонами в Django, всё было довольно просто:
-мы просто подставляли данные в шаблон через двойные фигурные скобки `{{ }}`.
+## Почему одной таблицы недостаточно
 
-Но настоящая сила шаблонов раскрывается тогда, когда мы начинаем **управлять тем, что и как отображается на странице**.
-Для этого Django предлагает **теги шаблонов** — особые конструкции, которые добавляют логику прямо внутрь HTML.
+До этого момента у нас две таблицы: `Film` и `Genre`. Они существуют независимо — жанр нельзя «прикрепить» к фильму. В реальном приложении данные всегда связаны: у фильма есть режиссёр, жанры, актёры. У пользователя — профиль.
 
-Сегодня мы познакомимся с самыми базовыми, но крайне важными тегами:
+В реляционных базах данных связи между таблицами — это фундамент. Мы уже работали с JOIN в первом модуле прошлого курса. Django ORM делает то же самое, но описывает связи на уровне Python-классов, а SQL генерирует сам.
 
-* `{% for %}` — для циклов (перебора элементов);
-* `{% if %}` — для условий;
-* `{% url %}` — для формирования ссылок на основе маршрутов.
+Три типа связей, которые мы разберём в этом уроке:
+
+| Тип | Пример | Поле Django |
+|---|---|---|
+| Many-to-One | Фильм → Режиссёр (у фильма один режиссёр, у режиссёра много фильмов) | `ForeignKey` |
+| Many-to-Many | Фильм ↔ Жанры (у фильма много жанров, жанр у многих фильмов) | `ManyToManyField` |
+| One-to-One | Пользователь ↔ Профиль (один к одному) | `OneToOneField` |
 
 ---
 
-## 1. Циклы в шаблонах: тег `{% for %}`
+## Many-to-One: ForeignKey
 
-Представим, что у нас есть база фильмов (в будущем мы будем брать их из модели, но пока сделаем простую имитацию):
+### Теория
+
+Many-to-One — самая распространённая связь. У фильма один режиссёр, но у режиссёра может быть много фильмов. В базе данных это реализуется через внешний ключ: в таблице `films_film` появляется колонка `director_id`, которая хранит `id` записи из таблицы `films_director`.
+
+### Добавляем модели Director и Film с ForeignKey
 
 ```python
-# views.py
-from django.shortcuts import render
+# films/models.py
+from django.db import models
 
-data_db = [
-    {'id': 1, 'title': 'Inception', 'description': 'Фильм о снах и реальности.', 'is_published': True},
-    {'id': 2, 'title': 'Tenet', 'description': 'Фильм, где время идёт в обратную сторону.', 'is_published': False},
-    {'id': 3, 'title': 'Interstellar', 'description': 'Фильм о космосе и времени.', 'is_published': True},
-]
 
-def index(request):
-    data = {
-        'title': 'Главная страница',
-        'menu': ['Главная', 'Фильмы', 'Контакты'],
-        'films': data_db,
-    }
-    return render(request, 'movies/index.html', context=data)
+class Director(models.Model):
+    name = models.CharField(max_length=200, verbose_name='Имя')
+    bio = models.TextField(blank=True, verbose_name='Биография')
+    photo = models.ImageField(
+        upload_to='directors/',
+        blank=True,
+        verbose_name='Фото'
+    )
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'Режиссёр'
+        verbose_name_plural = 'Режиссёры'
+
+    def __str__(self):
+        return self.name
+
+
+class Genre(models.Model):
+    name = models.CharField(max_length=100, unique=True, verbose_name='Название')
+    slug = models.SlugField(max_length=100, unique=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'Жанр'
+        verbose_name_plural = 'Жанры'
+
+    def __str__(self):
+        return self.name
+
+
+class FilmManager(models.Manager):
+
+    def high_rated(self):
+        return self.filter(rating__gte=8.0)
+
+    def by_year(self, year):
+        return self.filter(year=year)
+
+    def recent(self, count=5):
+        return self.order_by('-created_at')[:count]
+
+    def search(self, query):
+        return self.filter(
+            models.Q(title__icontains=query) |
+            models.Q(description__icontains=query)
+        )
+
+
+class Film(models.Model):
+    title = models.CharField(max_length=200, verbose_name='Название')
+    year = models.PositiveIntegerField(verbose_name='Год выпуска')
+    description = models.TextField(blank=True, verbose_name='Описание')
+    rating = models.DecimalField(
+        max_digits=3,
+        decimal_places=1,
+        default=0.0,
+        verbose_name='Рейтинг'
+    )
+    slug = models.SlugField(max_length=200, unique=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата добавления')
+
+    # Many-to-One: у фильма один режиссёр
+    director = models.ForeignKey(
+        Director,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='films',
+        verbose_name='Режиссёр'
+    )
+
+    objects = FilmManager()
+
+    class Meta:
+        ordering = ['-year']
+        verbose_name = 'Фильм'
+        verbose_name_plural = 'Фильмы'
+
+    def __str__(self):
+        return f'{self.title} ({self.year})'
 ```
 
-Теперь создадим шаблон `index.html`:
+> **Важно:** 
+> 
+> Для работы поля `ImageField`(Модель `Director` - поле `photo`) Django использует стороннюю библиотеку **Pillow** (обработчик изображений для Python). 
+> 
+> Если библиотека не установлена, при запуске проекта или выполнении миграций может возникнуть ошибка.
+> 
+> Для исправления ошибки установите **Pillow**:
+>
+> ```bash
+> pip install pillow
+> ```
 
-```html
-<!DOCTYPE html>
-<html lang="ru">
-  <head>
-    <title>{{ title }}</title>
-  </head>
-  <body>
-    <h1>{{ title }}</h1>
-    <p>{{ menu|join:" | " }}</p>
+### Параметры ForeignKey
 
-    <ul>
-      {% for film in films %}
-      <li>
-        <h2>{{ film.title }}</h2>
-        <p>{{ film.description }}</p>
-        <hr />
-      </li>
-      {% endfor %}
-    </ul>
-  </body>
-</html>
+**`on_delete`** — обязательный параметр. Определяет, что произойдёт с фильмами, если режиссёр будет удалён:
+
+| Значение | Поведение |
+|---|---|
+| `CASCADE` | Удалить все связанные фильмы вместе с режиссёром |
+| `SET_NULL` | Поставить `NULL` в поле `director` (требует `null=True`) |
+| `SET_DEFAULT` | Поставить значение по умолчанию |
+| `PROTECT` | Запретить удаление режиссёра, пока есть связанные фильмы |
+| `DO_NOTHING` | Ничего не делать (опасно — нарушает целостность БД) |
+
+Для нашего проекта выбираем `SET_NULL` — удаление режиссёра не должно удалять фильмы.
+
+**`related_name='films'`** — имя обратной связи. Через него можно получить все фильмы режиссёра: `director.films.all()`. Если не указать, Django создаст имя автоматически: `director.film_set.all()`.
+
+### ORM-команды для ForeignKey
+
+```python
+# Создание фильма с режиссёром
+coppola = Director.objects.create(name='Фрэнсис Форд Коппола')
+film = Film.objects.create(
+    title='Крёстный отец',
+    year=1972,
+    slug='krestnyj-otec',
+    director=coppola       # передаём объект
+)
+
+# Или через id
+film = Film.objects.create(
+    title='Крёстный отец',
+    year=1972,
+    slug='krestnyj-otec',
+    director_id=coppola.id  # передаём id напрямую
+)
+
+# Получить режиссёра фильма (прямая связь)
+film = Film.objects.get(slug='krestnyj-otec')
+print(film.director)        # Фрэнсис Форд Коппола
+print(film.director.name)   # Фрэнсис Форд Коппола
+
+# Получить все фильмы режиссёра (обратная связь через related_name)
+coppola = Director.objects.get(name='Фрэнсис Форд Коппола')
+films = coppola.films.all()
+
+# Фильтрация по связанной модели через __
+films = Film.objects.filter(director__name='Фрэнсис Форд Коппола')
+films = Film.objects.filter(director__name__icontains='коппола')
 ```
 
-Теперь запусти сервер и открой страницу `/` в браузере.
-Ты должен увидеть список фильмов с их описанием.
+Двойное подчёркивание `__` работает не только для Field Lookups, но и для «перехода» по связи в другую таблицу. `director__name` означает: перейди в связанную таблицу `Director` и обратись к полю `name`. В SQL это транслируется в `JOIN`.
 
 ---
 
-## 2. Добавляем условия: тег `{% if %}`
+## Many-to-Many: ManyToManyField
 
-На странице отображаются все фильмы, включая те, у которых `is_published=False`.
-Давайте скроем неопубликованные фильмы.
+### Теория
+
+У фильма много жанров, и один жанр относится ко многим фильмам. В реляционной базе данных такая связь реализуется через **промежуточную таблицу** (junction table): `films_film_genres` с колонками `film_id` и `genre_id`.
+
+Django создаёт эту таблицу автоматически — нам не нужно описывать её в коде.
+
+### Добавляем Actor и ManyToManyField
+
+```python
+class Actor(models.Model):
+    name = models.CharField(max_length=200, verbose_name='Имя')
+    photo = models.ImageField(
+        upload_to='actors/',
+        blank=True,
+        verbose_name='Фото'
+    )
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'Актёр'
+        verbose_name_plural = 'Актёры'
+
+    def __str__(self):
+        return self.name
+
+
+class Film(models.Model):
+    # ... предыдущие поля ...
+
+    director = models.ForeignKey(
+        Director,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='films',
+        verbose_name='Режиссёр'
+    )
+
+    # Many-to-Many: у фильма много жанров
+    genres = models.ManyToManyField(
+        Genre,
+        blank=True,
+        related_name='films',
+        verbose_name='Жанры'
+    )
+
+    # Many-to-Many: у фильма много актёров
+    actors = models.ManyToManyField(
+        Actor,
+        blank=True,
+        related_name='films',
+        verbose_name='Актёры'
+    )
+```
+
+Обрати внимание: у `ManyToManyField` нет параметра `on_delete` — при удалении фильма или жанра Django просто удаляет строки в промежуточной таблице, сами объекты остаются.
+
+### ORM-команды для ManyToManyField
+
+M2M-связь управляется через специальный менеджер, который доступен как атрибут поля:
+
+```python
+film = Film.objects.get(slug='krestnyj-otec')
+drama = Genre.objects.get(name='Драма')
+crime = Genre.objects.get(name='Криминал')
+
+# Добавить жанры
+film.genres.add(drama)
+film.genres.add(drama, crime)          # несколько сразу
+
+# Получить все жанры фильма
+film.genres.all()
+
+# Установить жанры — заменяет все текущие
+film.genres.set([drama, crime])
+
+# Удалить один жанр
+film.genres.remove(drama)
+
+# Очистить все жанры
+film.genres.clear()
+
+# Проверить наличие
+film.genres.filter(name='Драма').exists()
+```
+
+Обратная сторона связи — через `related_name`:
+
+```python
+# Все фильмы жанра «Криминал»
+crime = Genre.objects.get(name='Криминал')
+crime.films.all()
+```
+
+Фильтрация через `__`:
+
+```python
+# Фильмы жанра «Драма»
+Film.objects.filter(genres__name='Драма')
+
+# Фильмы с актёром по имени (без учёта регистра)
+Film.objects.filter(actors__name__icontains='пачино')
+
+# Фильмы, у которых есть хотя бы один жанр
+Film.objects.filter(genres__isnull=False).distinct()
+```
+
+`.distinct()` здесь важен: если у фильма несколько жанров, JOIN вернёт дублирующиеся строки, и без `distinct()` один фильм попадёт в результат несколько раз.
+
+---
+
+## One-to-One: OneToOneField
+
+### Теория
+
+Один объект связан ровно с одним другим объектом. В базе данных это ForeignKey с ограничением `UNIQUE`. Используется для расширения существующей модели без изменения самой модели.
+
+Классический пример в Django — расширение встроенной модели `User`. Встроенная модель содержит только базовые поля: `username`, `email`, `password`. Для профиля пользователя (аватар, биография) создаётся отдельная модель с `OneToOneField` на `User`.
+
+Эту связь мы реализуем полностью в модуле 7, когда дойдём до авторизации. Сейчас разберём механику на примере нашего проекта.
+
+### Добавляем модель FilmStats
+
+Представь, что мы хотим хранить статистику просмотров отдельно от основной модели — чтобы не раздувать таблицу `films_film`:
+
+```python
+class FilmStats(models.Model):
+    film = models.OneToOneField(
+        Film,
+        on_delete=models.CASCADE,
+        related_name='stats',
+        verbose_name='Фильм'
+    )
+    views_count = models.PositiveIntegerField(default=0, verbose_name='Просмотры')
+    likes_count = models.PositiveIntegerField(default=0, verbose_name='Лайки')
+
+    class Meta:
+        verbose_name = 'Статистика фильма'
+        verbose_name_plural = 'Статистика фильмов'
+
+    def __str__(self):
+        return f'Статистика: {self.film.title}'
+```
+
+`on_delete=CASCADE` здесь логичен: если фильм удалён — статистика теряет смысл.
+
+### ORM-команды для OneToOneField
+
+```python
+film = Film.objects.get(slug='krestnyj-otec')
+
+# Создать статистику для фильма
+stats = FilmStats.objects.create(film=film, views_count=1000)
+
+# Получить статистику фильма (прямая связь)
+print(film.stats.views_count)  # 1000
+
+# Получить фильм по статистике (обратная связь)
+stats = FilmStats.objects.get(film__slug='krestnyj-otec')
+print(stats.film.title)        # Крёстный отец
+
+# Обновить счётчик
+film.stats.views_count += 1
+film.stats.save()
+```
+
+Главное отличие от `ForeignKey`: обращение к связанному объекту через `film.stats` вернёт один объект, а не QuerySet. Если статистики нет — выбросит `RelatedObjectDoesNotExist`.
+
+---
+
+### ForeignKey отличается от OneToOneField на уровне базы данных
+
+На уровне базы данных оба создают внешний ключ. Разница в ограничении: `OneToOneField` добавляет `UNIQUE` на колонку с внешним ключом, что гарантирует — каждому объекту соответствует ровно один связанный объект. 
+
+`ForeignKey` без `unique=True` позволяет нескольким записям ссылаться на один и тот же объект (много-к-одному).
+
+## select_related и prefetch_related
+
+Работа со связями порождает классическую проблему N+1: если вывести список из 100 фильмов и для каждого обратиться к `film.director`, Django выполнит 101 запрос — один для списка и по одному для каждого режиссёра.
+
+Django решает это двумя методами:
+
+**`select_related`** — для связей ForeignKey и OneToOne. Делает один SQL-запрос с JOIN:
+
+```python
+# Без select_related: 1 + N запросов
+films = Film.objects.all()
+for film in films:
+    print(film.director.name)  # каждый раз новый SELECT
+
+# С select_related: 1 запрос с JOIN
+films = Film.objects.select_related('director').all()
+for film in films:
+    print(film.director.name)  # данные уже загружены
+```
+
+**`prefetch_related`** — для связей ManyToMany и обратных ForeignKey. Делает отдельный запрос для каждой связи и соединяет результаты в Python:
+
+```python
+# Без prefetch_related: 1 + N запросов
+films = Film.objects.all()
+for film in films:
+    print(film.genres.all())   # каждый раз новый SELECT
+
+# С prefetch_related: 2 запроса суммарно
+films = Film.objects.prefetch_related('genres', 'actors').all()
+for film in films:
+    print(film.genres.all())   # данные уже загружены
+```
+
+Можно комбинировать оба метода:
+
+```python
+films = Film.objects.select_related('director').prefetch_related('genres', 'actors')
+```
+
+Мы увидим реальный эффект от этих методов в уроке 12, когда подключим Django Debug Toolbar и сравним количество SQL-запросов.
+
+---
+
+## Создаём миграцию
+
+После всех изменений в `models.py` создаём и применяем миграцию:
+
+```bash
+python manage.py makemigrations
+python manage.py migrate
+```
+
+Django создаст таблицы `films_director`, `films_actor`, `films_filmstats`, а также промежуточные таблицы `films_film_genres` и `films_film_actors`.
+
+---
+
+## Обновляем представление film_detail
+
+Теперь страница фильма может показывать режиссёра, жанры и актёров:
+
+```python
+# films/views.py
+def film_detail(request, film_id):
+    film = get_object_or_404(
+        Film.objects.select_related('director').prefetch_related('genres', 'actors'),
+        id=film_id
+    )
+    return render(request, 'films/film_detail.html', {'film': film})
+```
 
 ```html
-<ul>
-  {% for film in films %}
-    {% if film.is_published %}
-      <li>
-        <h2>{{ film.title }}</h2>
-        <p>{{ film.description }}</p>
-        {% if not forloop.last %}
-        <hr />
-        {% endif %}
-      </li>
+<!-- films/templates/films/film_detail.html -->
+{% extends 'base.html' %}
+
+{% block title %}{{ film.title }} — Сайт фильмов{% endblock %}
+
+{% block content %}
+    <h1>{{ film.title }}</h1>
+    <p>Год выпуска: {{ film.year }}</p>
+
+    {% if film.director %}
+        <p>Режиссёр: {{ film.director.name }}</p>
     {% endif %}
-  {% endfor %}
-</ul>
+
+    {% if film.genres.all %}
+        <p>Жанры:
+            {% for genre in film.genres.all %}
+                {{ genre.name }}{% if not forloop.last %}, {% endif %}
+            {% endfor %}
+        </p>
+    {% endif %}
+
+    {% if film.actors.all %}
+        <p>Актёры:
+            {% for actor in film.actors.all %}
+                {{ actor.name }}{% if not forloop.last %}, {% endif %}
+            {% endfor %}
+        </p>
+    {% endif %}
+
+    <p>{{ film.description|default:"Описание отсутствует." }}</p>
+
+    {% if film.stats %}
+        <p>Просмотров: {{ film.stats.views_count }}</p>
+    {% endif %}
+
+    <a href="{% url 'films:film_list' %}">← Назад к каталогу</a>
+{% endblock %}
 ```
-
-Теперь в браузере будут показаны только опубликованные фильмы (`is_published=True`).
-
-Обрати внимание на переменную `forloop.last`.
-Django предоставляет набор специальных переменных внутри цикла:
-
-| Переменная         | Значение                            |
-| ------------------ | ----------------------------------- |
-| `forloop.counter`  | Номер итерации, начиная с 1         |
-| `forloop.counter0` | Номер итерации, начиная с 0         |
-| `forloop.first`    | `True`, если это первая итерация    |
-| `forloop.last`     | `True`, если это последняя итерация |
-
-Попробуй использовать `forloop.counter`, чтобы пронумеровать фильмы:
-
-```html
-<li>
-  <h2>{{ forloop.counter }}. {{ film.title }}</h2>
-  <p>{{ film.description }}</p>
-</li>
-```
-
-Теперь каждый фильм будет выводиться с номером.
 
 ---
 
-## 3. Динамические ссылки: тег `{% url %}`
+## Подводные камни
 
-До этого момента мы писали статические HTML-ссылки, например:
+### NULL в ForeignKey
 
-```html
-<a href="/film/1/">Подробнее</a>
-```
-
-Но в реальном приложении маршруты могут меняться.
-Чтобы не редактировать каждый шаблон вручную, Django предлагает тег `{% url %}`.
-
----
-
-### Пример с маршрутом фильма
-
-Добавим маршруты в `urls.py`:
+`ForeignKey` по умолчанию не допускает `NULL` — связь обязательна. Если добавляешь ForeignKey в уже существующую таблицу с данными без `null=True` — Django при `makemigrations` потребует значение по умолчанию для существующих строк. Всегда думай заранее: может ли фильм существовать без режиссёра?
 
 ```python
-from django.urls import path
-from . import views
+# Необязательная связь (режиссёр может быть не указан)
+director = models.ForeignKey(Director, on_delete=models.SET_NULL, null=True, blank=True)
 
-urlpatterns = [
-    path('', views.index, name='home'),
-    path('film/<int:film_id>/', views.show_film, name='film'),
-]
+# Обязательная связь (режиссёр всегда должен быть указан)
+director = models.ForeignKey(Director, on_delete=models.CASCADE)
 ```
 
-Добавим представление:
+### related_name при нескольких ForeignKey на одну модель
+
+Если в одной модели два ForeignKey указывают на одну и ту же модель — Django не сможет автоматически создать обратные имена и выдаст ошибку. `related_name` становится обязательным:
 
 ```python
-from django.http import HttpResponse
-
-def show_film(request, film_id):
-    return HttpResponse(f"Отображение фильма с id = {film_id}")
+class Film(models.Model):
+    director = models.ForeignKey(
+        Person, on_delete=models.SET_NULL,
+        null=True, related_name='directed_films'
+    )
+    screenwriter = models.ForeignKey(
+        Person, on_delete=models.SET_NULL,
+        null=True, related_name='written_films'
+    )
 ```
 
-Теперь в шаблоне создадим динамическую ссылку на фильм:
+### distinct() при фильтрации через M2M
 
-```html
-<p><a href="{% url 'film' film.id %}">Подробнее</a></p>
+Фильтрация через ManyToMany делает JOIN с промежуточной таблицей. Если у фильма несколько жанров и условие совпадает с несколькими из них — фильм попадёт в результат несколько раз:
+
+```python
+# Один фильм может появиться дважды
+Film.objects.filter(genres__name__in=['Драма', 'Криминал'])
+
+# distinct() убирает дубликаты
+Film.objects.filter(genres__name__in=['Драма', 'Криминал']).distinct()
 ```
-
-> Если ты изменишь маршрут `film/<int:film_id>/` в `urls.py`, Django сам подставит новое значение во все шаблоны, где используется тег `{% url %}`.
-> Это делает проект гораздо более гибким и защищает от «битых ссылок».
 
 ---
 
-## 4. Формируем главное меню с помощью цикла и `url`
+## Вопросы для проверки
 
-Добавим меню в `views.py`:
-
-```python
-# movies/views.py
-menu = [
-    {'title': "О сайте", 'url_name': 'about'},
-    {'title': "Добавить фильм", 'url_name': 'add_film'},
-    {'title': "Контакты", 'url_name': 'contact'},
-    {'title': "Войти", 'url_name': 'login'}
-]
-```
-
-Добавим маршруты и заглушки:
-
-```python
-# movies/urls.py
-urlpatterns = [
-    path('', views.index, name='home'),
-    path('about/', views.about, name='about'),
-    path('add_film/', views.add_film, name='add_film'),
-    path('contact/', views.contact, name='contact'),
-    path('login/', views.login, name='login'),
-    path('film/<int:film_id>/', views.show_film, name='film'),
-]
-```
-
-```python
-# movies/views.py
-def index(request):
-    data = {
-        'title': 'Главная страница',
-        'menu': menu, # Добавили меню
-        'films': data_db,
-    }
-    return render(request, 'movies/index.html', context=data)
-
-...
-
-def about(request):
-    return HttpResponse("О сайте CinemaHub")
-
-def add_film(request):
-    return HttpResponse("Добавление фильма")
-
-def contact(request):
-    return HttpResponse("Контакты")
-
-def login(request):
-    return HttpResponse("Авторизация")
-```
-
-Теперь в шаблоне выведем меню:
-
-```html
-<ul>
-  <li><a href="{% url 'home' %}">Главная</a></li>
-  {% for m in menu %}
-    <li><a href="{% url m.url_name %}">{{ m.title }}</a></li>
-  {% endfor %}
-</ul>
-```
-
-Проверь страницу — теперь ссылки меню автоматически формируются по именам маршрутов.
-Если ты изменишь путь в `urls.py`, шаблон сам подстроится.
+1. Чем ForeignKey отличается от OneToOneField на уровне базы данных?
+2. Нужно ли вручную создавать промежуточную таблицу для ManyToManyField?
+3. Что такое `related_name` и что произойдёт, если его не указать?
+4. В чём разница между `select_related` и `prefetch_related`? Когда использовать каждый?
+5. Почему при фильтрации через ManyToMany иногда нужен `.distinct()`?
 
 ---
 
-## ⚠️ Возможные ошибки
+## Практическая задача
 
-1. **Ошибка: "NoReverseMatch"**
-   Происходит, если имя маршрута указано неправильно или нет нужных аргументов.
-   Проверь `urls.py` и убедись, что передаёшь все необходимые параметры.
+**Тип: расширь проект**
 
-2. **Ошибка внутри цикла `for`**
-   Django не поддерживает сложные выражения в шаблонах (например, `film.id + 1`).
-   Если нужно обработать данные — делай это во `views.py`, а не в шаблоне.
+**Часть 1.** Добавь в `films/views.py` представление `director_detail`, которое показывает страницу режиссёра: имя, биографию и список его фильмов. Используй `select_related` и `prefetch_related` там, где это уместно.
 
-3. **Забыл закрыть тег**
-   Все теги в Django (например, `{% if %}`, `{% for %}`) требуют закрытия:
-   `{% endif %}`, `{% endfor %}` — без них шаблон не будет работать.
+**Часть 2.** Создай шаблон `films/templates/films/director_detail.html`, который наследует `base.html` и выводит информацию о режиссёре и список его фильмов через `{% include 'films/includes/film_card.html' %}`.
 
----
-
-## Практическое задание
-
-1. Добавь в список `data_db` свой любимый фильм с описанием.
-2. Сделай, чтобы он отображался в списке только если `is_published=True`.
-3. Добавь динамическую ссылку «Подробнее» для каждого фильма.
-4. В меню добавь пункт «Главная» и сделай, чтобы он вел на главную страницу.
-5. Попробуй поменять маршруты в `urls.py` и убедись, что шаблон продолжает работать без изменений.
-
----
-
-## Вопросы
-
-1. Для чего нужен тег `{% for %}` в шаблонах Django?
-2. Что делает тег `{% if %}` и как он используется?
-3. Как избежать вывода неопубликованных фильмов на страницу?
-4. Зачем нужен тег `{% url %}`?
-5. Что произойдёт, если ты изменишь маршрут в `urls.py`, но не используешь тег `{% url %}` в шаблоне?
-6. Что делает переменная `forloop.counter`?
-7. Что произойдёт, если забыть закрыть тег `{% if %}`?
-8. Почему использование тега `{% url %}` безопаснее, чем прописывать URL вручную?
-9. Как можно исключить последнюю горизонтальную линию `<hr>` в цикле?
-10. Что означает ошибка `NoReverseMatch`?
+**Часть 3.** Убедись, что маршрут `directors/<int:director_id>/` с именем `director_detail` добавлен в `films/urls.py` (мы создавали его в уроке 2 — проверь, что он там есть).
 
 ---
 
