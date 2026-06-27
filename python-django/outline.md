@@ -19,6 +19,7 @@
 - [Урок 9. CRUD через Django ORM. Field Lookups. Пользовательский менеджер модели](lesson09.md)
 - [Урок 10. Связи между моделями: ForeignKey, ManyToMany, OneToOne — теория + ORM-команды для всех типов](lesson10.md)
 - [Урок 11. Продвинутый ORM: Q, F, annotate(), агрегаты, группировка](lesson11.md)
+- [Урок 12. Слаги в URL. get_absolute_url(). Django Debug Toolbar](lesson12.md)
 
 ---
 
