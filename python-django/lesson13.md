@@ -260,7 +260,7 @@ class FilmStatsAdmin(admin.ModelAdmin):
 
 ---
 
-## Вопросы для проверки
+## Вопросы
 
 1. Чем `admin.site.register(Film)` отличается от регистрации через `@admin.register(Film)` с классом `FilmAdmin`?
 2. Что делает `list_display_links` и почему его нельзя использовать одновременно с `list_editable` на одном поле?

@@ -270,7 +270,7 @@ films/templates/films/film_list.html
 ### Контекст — это всегда словарь
 
 ```python
-# Частая ошибка новичков — передать не словарь
+# Частая ошибка — передать не словарь
 return render(request, 'films/index.html', title)
 
 # Правильно — обязательно словарь
